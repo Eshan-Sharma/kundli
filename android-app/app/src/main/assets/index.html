@@ -3473,6 +3473,9 @@ function renderMuhuratPane() {
   else if (MUHURAT_MODE === "month") body = renderMuhuratMonth(date);
   else if (MUHURAT_MODE === "year")  body = renderMuhuratYear(date);
   document.getElementById("pane-muhurat").innerHTML = toolbarHtml + body;
+  // Ensure the live Hindu Clock ticker is running iff the clock card is on-screen
+  if (document.getElementById("hinduClockCard")) startHinduClock();
+  else stopHinduClock();
 }
 
 function muhuratMode(m) { MUHURAT_MODE = m; renderMuhuratPane(); }
@@ -3941,16 +3944,29 @@ function renderSavedProfilesCard() {
 }
 
 // ============================================================
-// HINDU CLOCK — live ghati / pal / vipal + prahar since sunrise.
+// HINDU CLOCK — live ghati / pal / vipal + 8-pahar system.
 // 60 ghati per day, 1 ghati = 24 min, 1 ghati = 60 pal (1 pal = 24 sec),
-// 1 pal = 60 vipal (1 vipal = 0.4 sec). 8 prahar in day+night (4 day + 4 night).
+// 1 pal = 60 vipal (1 vipal = 0.4 sec). Pahars: NOT fixed 3-hour blocks —
+// each is one-quarter of the ACTUAL day or night length (sunrise→sunset / sunset→next-sunrise).
+// 1 pahar = 7.5 ghatis. Day and night pahars differ in length (only ~equal at the equinox).
 // ============================================================
-const PRAHAR_DAY   = ["Purvanha","Madhyanha","Aparanha","Sayan"];
-const PRAHAR_NIGHT = ["Pradosh","Nishith","Triayama","Usha"];
 
+// Standard 8-pahar dataset (index 1..8). Sanskrit + colloquial + descriptive note.
+const PAHAR_DATA = [
+  { num:1, period:"day",   sanskrit:"Purvahna",  colloquial:"Pehla pahar",          note:"Begins at sunrise; early morning." },
+  { num:2, period:"day",   sanskrit:"Madhyahna", colloquial:"Do-pahar",             note:"Around midday; the everyday word 'dopahar' (afternoon) derives from this." },
+  { num:3, period:"day",   sanskrit:"Aparahna",  colloquial:"Seh pahar",            note:"Afternoon; 'seh pahar' loosely came to mean evening in common speech." },
+  { num:4, period:"day",   sanskrit:"Sayahna",   colloquial:"Chautha pahar",        note:"Late afternoon; ends at sunset." },
+  { num:5, period:"night", sanskrit:"Pradosh",   colloquial:"Pehla pahar (raat)",   note:"Begins at sunset; early night." },
+  { num:6, period:"night", sanskrit:"Nishith",   colloquial:"Do-pahar (raat)",      note:"Late night, around midnight." },
+  { num:7, period:"night", sanskrit:"Triyama",   colloquial:"Seh pahar (raat)",     note:"Deep night / pre-dawn." },
+  { num:8, period:"night", sanskrit:"Usha",      colloquial:"Chautha pahar (raat)", note:"Dawn pahar; ends at sunrise. Brahma muhurta falls within this pahar." }
+];
+
+// Returns ghati/pal/vipal-since-sunrise + isDay only. Pahar is now in computePahar().
 function hinduClockState(nowH, sunrise, sunset) {
   if (sunrise === null || sunset === null || isNaN(sunrise) || isNaN(sunset))
-    return { ghati:0, pal:0, vipal:0, prahar:"—", prahar_idx:0, prahar_progress:0, isDay:true };
+    return { ghati:0, pal:0, vipal:0, isDay:true };
   const isDay = (nowH >= sunrise && nowH < sunset);
   let elapsed; // hours since sunrise (always positive)
   if (nowH >= sunrise) elapsed = nowH - sunrise;
@@ -3959,23 +3975,81 @@ function hinduClockState(nowH, sunrise, sunset) {
   const ghati = Math.floor(totalSec / 1440);
   const pal   = Math.floor((totalSec - ghati * 1440) / 24);
   const vipal = Math.floor((totalSec - ghati * 1440 - pal * 24) / 0.4);
-  let prahar, prahar_idx, prahar_progress;
-  if (isDay) {
-    const dayLen = sunset - sunrise;
-    const inDay = nowH - sunrise;
-    prahar_idx = Math.min(3, Math.floor(inDay * 4 / dayLen));
-    prahar = PRAHAR_DAY[prahar_idx];
-    const plen = dayLen / 4;
-    prahar_progress = (inDay - prahar_idx * plen) / plen;
-  } else {
-    const nightLen = (24 - sunset) + sunrise;
-    let inNight = (nowH >= sunset) ? (nowH - sunset) : ((24 - sunset) + nowH);
-    prahar_idx = Math.min(3, Math.floor(inNight * 4 / nightLen));
-    prahar = PRAHAR_NIGHT[prahar_idx];
-    const plen = nightLen / 4;
-    prahar_progress = (inNight - prahar_idx * plen) / plen;
+  return { ghati, pal, vipal, isDay };
+}
+
+// Compute the current pahar — one-quarter of the actual day/night interval.
+// Critical: pahars are NOT fixed 3-hour blocks. Day = sunrise→sunset / 4; Night = sunset→next sunrise / 4.
+// Handles the post-midnight-before-sunrise case correctly by using *yesterday's* sunset.
+// Returns { available, num(1-8), period, sanskrit, colloquial, note, startHour, endHour, progress, paharLengthMin }.
+// On polar / no-sunrise-or-sunset edge cases returns { available:false } and the UI shows a fallback message.
+function computePahar(now, lat, lon, tz) {
+  const y = now.getFullYear(), m = now.getMonth()+1, d = now.getDate();
+  const sunToday = sunRiseSet(y, m, d, lat, lon, tz);
+  const nowH = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
+
+  if (sunToday.sunrise === null || isNaN(sunToday.sunrise) ||
+      sunToday.sunset  === null || isNaN(sunToday.sunset)) {
+    return { available:false, reason:"No sunrise or sunset at this location/date (polar)." };
   }
-  return { ghati, pal, vipal, prahar, prahar_idx, prahar_progress, isDay };
+
+  // ---- DAY PAHAR ----
+  if (nowH >= sunToday.sunrise && nowH < sunToday.sunset) {
+    const dayLen = sunToday.sunset - sunToday.sunrise;
+    const inDay = nowH - sunToday.sunrise;
+    const plen = dayLen / 4;
+    const idx = Math.min(3, Math.floor(inDay / plen));   // 0..3 → pahars 1..4
+    const data = PAHAR_DATA[idx];
+    return {
+      available: true,
+      num: data.num, period: "day",
+      sanskrit: data.sanskrit, colloquial: data.colloquial, note: data.note,
+      startHour: sunToday.sunrise + idx * plen,
+      endHour:   sunToday.sunrise + (idx + 1) * plen,
+      progress:  (inDay - idx * plen) / plen,
+      paharLengthMin: plen * 60
+    };
+  }
+
+  // ---- NIGHT PAHAR ----
+  // Two sub-cases: after today's sunset (night spans into tomorrow), OR
+  // before today's sunrise (night STARTED yesterday at yesterday's sunset).
+  let nightStartH, nightLen, inNight;
+  if (nowH >= sunToday.sunset) {
+    // Need tomorrow's sunrise to bound the night
+    const tmrw = new Date(now.getTime() + 86400000);
+    const sunTmrw = sunRiseSet(tmrw.getFullYear(), tmrw.getMonth()+1, tmrw.getDate(), lat, lon, tz);
+    if (sunTmrw.sunrise === null || isNaN(sunTmrw.sunrise))
+      return { available:false, reason:"Tomorrow's sunrise unavailable (polar transition)." };
+    nightStartH = sunToday.sunset;
+    nightLen = (24 - sunToday.sunset) + sunTmrw.sunrise;
+    inNight = nowH - sunToday.sunset;
+  } else {
+    // Post-midnight, pre-today-sunrise — use yesterday's sunset
+    const yest = new Date(now.getTime() - 86400000);
+    const sunYest = sunRiseSet(yest.getFullYear(), yest.getMonth()+1, yest.getDate(), lat, lon, tz);
+    if (sunYest.sunset === null || isNaN(sunYest.sunset))
+      return { available:false, reason:"Yesterday's sunset unavailable (polar transition)." };
+    nightStartH = sunYest.sunset;             // hour-of-day on yesterday, but we treat the timeline linearly
+    nightLen = (24 - sunYest.sunset) + sunToday.sunrise;
+    inNight = (24 - sunYest.sunset) + nowH;
+  }
+  const plen = nightLen / 4;
+  const idx = Math.min(3, Math.floor(inNight / plen));   // 0..3 → pahars 5..8
+  const data = PAHAR_DATA[4 + idx];
+  // For display: start/end on the 0..24 wall clock (may wrap past midnight).
+  let startHour = nightStartH + idx * plen;
+  let endHour   = nightStartH + (idx + 1) * plen;
+  while (startHour >= 24) startHour -= 24;
+  while (endHour   >= 24) endHour   -= 24;
+  return {
+    available: true,
+    num: data.num, period: "night",
+    sanskrit: data.sanskrit, colloquial: data.colloquial, note: data.note,
+    startHour, endHour,
+    progress: (inNight - idx * plen) / plen,
+    paharLengthMin: plen * 60
+  };
 }
 
 function renderHinduClock() {
@@ -3986,7 +4060,40 @@ function renderHinduClock() {
   const sun = sunRiseSet(now.getFullYear(), now.getMonth()+1, now.getDate(), lat, lon, tz);
   const nowH = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
   const s = hinduClockState(nowH, sun.sunrise, sun.sunset);
+  const p = computePahar(now, lat, lon, tz);
   const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  // Pahar block — the only part of this card that changed.
+  // Shows: number 1-8 of 8, Sanskrit + colloquial name, period (day/night), actual start/end times, progress.
+  let paharHtml;
+  if (!p.available) {
+    paharHtml = `
+      <div class="clock-row">
+        <div><div class="lbl">Current Pahar</div>
+          <div class="val">Unavailable</div>
+          <div class="sub" style="font-size:11px;color:var(--text-3);">${p.reason || 'No sunrise/sunset at this location/date.'}</div>
+        </div>
+        <div class="right">${ts}</div>
+      </div>
+      <div class="clock-progress"><div style="width:0%;"></div></div>
+    `;
+  } else {
+    const paharMin = Math.round(p.paharLengthMin);
+    paharHtml = `
+      <div class="clock-row">
+        <div style="flex:1;min-width:0;">
+          <div class="lbl">Current Pahar · ${p.num} / 8 · ${p.period === 'day' ? 'Day' : 'Night'}</div>
+          <div class="val">${p.sanskrit}
+            <span class="chip" style="font-size:10px;padding:2px 7px;margin-left:6px;vertical-align:middle;">${p.colloquial}</span>
+          </div>
+          <div class="sub" style="color:var(--text-2);font-family:'JetBrains Mono',monospace;font-size:11px;margin-top:3px;">
+            ${fmtTime(p.startHour)} – ${fmtTime(p.endHour)} · ${paharMin} min long
+          </div>
+        </div>
+        <div class="right">${ts}</div>
+      </div>
+      <div class="clock-progress"><div style="width:${Math.floor(p.progress*100)}%;"></div></div>
+    `;
+  }
   return `
     <div id="hinduClockCard" class="clock-card">
       <div class="section-h" style="padding:0;color:var(--accent);">Hindu Clock <span class="sub" style="color:var(--text-3);">since today's sunrise · ${s.isDay ? 'Day' : 'Night'}</span></div>
@@ -3995,11 +4102,7 @@ function renderHinduClock() {
         <div class="unit"><div class="val">${String(s.pal).padStart(2,'0')}</div><div class="lbl">Pal</div><div class="sub">24 sec each</div></div>
         <div class="unit"><div class="val">${String(s.vipal).padStart(2,'0')}</div><div class="lbl">Vipal</div><div class="sub">0.4 sec each</div></div>
       </div>
-      <div class="clock-row">
-        <div><div class="lbl">Current Prahar</div><div class="val">${s.prahar} (${s.prahar_idx+1}/4)</div></div>
-        <div class="right">${ts}</div>
-      </div>
-      <div class="clock-progress"><div style="width:${Math.floor(s.prahar_progress*100)}%;"></div></div>
+      ${paharHtml}
     </div>
   `;
 }
