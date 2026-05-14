@@ -332,8 +332,8 @@
 
   <!-- CONTENT -->
   <main class="content">
-    <!-- BIRTH DETAILS FORM -->
-    <div class="card" id="birthCard">
+    <!-- BIRTH DETAILS FORM — only visible on Kundli + Milan tabs (set by navTo) -->
+    <div class="card" id="birthCard" style="display:none;">
       <h2 style="color: var(--accent); margin-bottom: 14px;" data-lbl="Birth Details">Birth Details</h2>
       <div class="form-grid">
         <div><label data-lbl="Name">Name</label><input id="name1" type="text" value="Native" /></div>
@@ -1407,6 +1407,9 @@ function navTo(dest) {
   const pane = document.getElementById("pane-" + dest);
   if (pane) pane.classList.add("active");
   document.querySelectorAll("[data-nav]").forEach(b => b.classList.toggle("active", b.dataset.nav === dest));
+  // Birth Details form only relevant on Kundli + Milan tabs
+  const bc = document.getElementById("birthCard");
+  if (bc) bc.style.display = (dest === "kundli" || dest === "match") ? "" : "none";
   // Lazy render the destination (so we always pick up latest data)
   if (dest === "panchang") renderPanchangPane();
   else if (dest === "muhurat") renderMuhuratPane();
