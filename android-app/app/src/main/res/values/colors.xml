@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#1A1410</color>
+    <color name="panel">#261C14</color>
+    <color name="panel2">#2F2318</color>
+    <color name="accent">#D4A017</color>
+    <color name="accent2">#C97D17</color>
+    <color name="text">#F4E8D0</color>
+    <color name="muted">#B89968</color>
+    <color name="border">#5A3E1F</color>
+    <color name="good">#6AB04C</color>
+    <color name="bad">#E74C3C</color>
+    <color name="warn">#F39C12</color>
+    <color name="ic_launcher_background">#1A1410</color>
+</resources>

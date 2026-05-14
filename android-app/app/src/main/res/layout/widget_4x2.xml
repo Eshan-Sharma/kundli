@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="10dp">
+
+    <TextView
+        android:id="@+id/w_date"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/accent"
+        android:textStyle="bold"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/w_moon"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/muted"
+        android:textSize="11sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingTop="6dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+            <TextView android:id="@+id/w_arrow_n"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="22sp" android:textStyle="bold"/>
+            <TextView android:id="@+id/w_label_n"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="11sp" android:textStyle="bold"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+            <TextView android:id="@+id/w_arrow_e"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="22sp" android:textStyle="bold"/>
+            <TextView android:id="@+id/w_label_e"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="11sp" android:textStyle="bold"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+            <TextView android:id="@+id/w_arrow_s"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="22sp" android:textStyle="bold"/>
+            <TextView android:id="@+id/w_label_s"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="11sp" android:textStyle="bold"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+            <TextView android:id="@+id/w_arrow_w"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="22sp" android:textStyle="bold"/>
+            <TextView android:id="@+id/w_label_w"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="11sp" android:textStyle="bold"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/w_good"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/good"
+        android:textStyle="bold"
+        android:textSize="12sp"
+        android:gravity="center"
+        android:paddingTop="4dp" />
+
+    <TextView
+        android:id="@+id/w_blocked"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/bad"
+        android:textSize="11sp"
+        android:gravity="center" />
+</LinearLayout>
