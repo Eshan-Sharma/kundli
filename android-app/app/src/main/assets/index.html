@@ -3090,11 +3090,51 @@ function festivalsForPanchang(pan) {
 }
 
 // ============================================================
-// MUHURAT PANE — date selector + muhurat-only view
+// MUHURAT PANE — calendar with day/week/month/year toggle
 // ============================================================
+let MUHURAT_MODE = "day";   // day | week | month | year
+
 function renderMuhuratPane() {
   if (!SELF_DATA) return;
   const date = CAL_DATE || new Date();
+  // Toolbar (same as Panchang)
+  let toolbarHtml = `
+    <div class="cal-toolbar">
+      <button class="nav-btn" onclick="muhuratNav(-1)">◀</button>
+      <input id="muhuratDate" type="date" value="${ymd(date)}" onchange="muhuratJump(this.value)"/>
+      <button class="nav-btn" onclick="muhuratNav(1)">▶</button>
+      <button class="nav-btn" onclick="muhuratToday()">${t('Today')}</button>
+      <div class="modes">
+        <button data-mhm="day"   class="${MUHURAT_MODE==='day'?'active':'inactive'}"   onclick="muhuratMode('day')">${t('Day')}</button>
+        <button data-mhm="week"  class="${MUHURAT_MODE==='week'?'active':'inactive'}"  onclick="muhuratMode('week')">${t('Week')}</button>
+        <button data-mhm="month" class="${MUHURAT_MODE==='month'?'active':'inactive'}" onclick="muhuratMode('month')">${t('Month')}</button>
+        <button data-mhm="year"  class="${MUHURAT_MODE==='year'?'active':'inactive'}"  onclick="muhuratMode('year')">${t('Year')}</button>
+      </div>
+    </div>
+  `;
+  let body = "";
+  if      (MUHURAT_MODE === "day")   body = renderMuhuratDay(date);
+  else if (MUHURAT_MODE === "week")  body = renderMuhuratWeek(date);
+  else if (MUHURAT_MODE === "month") body = renderMuhuratMonth(date);
+  else if (MUHURAT_MODE === "year")  body = renderMuhuratYear(date);
+  document.getElementById("pane-muhurat").innerHTML = toolbarHtml + body;
+}
+
+function muhuratMode(m) { MUHURAT_MODE = m; renderMuhuratPane(); }
+function muhuratNav(dir) {
+  const d = new Date(CAL_DATE);
+  if (MUHURAT_MODE === "day") d.setDate(d.getDate()+dir);
+  else if (MUHURAT_MODE === "week") d.setDate(d.getDate()+dir*7);
+  else if (MUHURAT_MODE === "month") d.setMonth(d.getMonth()+dir);
+  else if (MUHURAT_MODE === "year") d.setFullYear(d.getFullYear()+dir);
+  CAL_DATE = d;
+  renderMuhuratPane();
+}
+function muhuratJump(v) { if (!v) return; const [y,m,d]=v.split("-").map(Number); CAL_DATE = new Date(y,m-1,d); renderMuhuratPane(); }
+function muhuratToday() { const t = new Date(); CAL_DATE = new Date(t.getFullYear(), t.getMonth(), t.getDate()); renderMuhuratPane(); }
+function muhuratJumpAndDay(s) { muhuratJump(s); muhuratMode('day'); }
+
+function renderMuhuratDay(date) {
   const tz = CURRENT ? CURRENT.input.tz : 5.5;
   const lat = CURRENT ? CURRENT.input.lat : 28.6139;
   const lon = CURRENT ? CURRENT.input.lon : 77.2090;
@@ -3104,13 +3144,7 @@ function renderMuhuratPane() {
   const sun = pan.sun;
   let html = `
     <div class="card">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button class="nav-btn" onclick="muhuratNav(-1)">◀</button>
-        <input type="date" value="${ymd(date)}" onchange="muhuratJump(this.value)" style="width:auto;"/>
-        <button class="nav-btn" onclick="muhuratNav(1)">▶</button>
-        <button class="nav-btn" onclick="muhuratToday()">${t('Today')}</button>
-      </div>
-      <h3 style="color:var(--accent);margin-top:14px;">${wdName}, ${dateStr}</h3>
+      <h3 style="color:var(--accent);">${wdName}, ${dateStr}</h3>
       <div class="small">${t('Tithi')}: ${t(pan.paksha)} ${t(pan.tithiName)} • ${t('Nakshatra')}: ${pan.nakshatra.name} • ${t('Yoga')}: ${pan.yogaName} • ${t('Karana')}: ${pan.karanaName}</div>
     </div>
     ${pan.specialYogas.length ? `<div class="card">
@@ -3155,11 +3189,117 @@ function renderMuhuratPane() {
       </div>
     </div>`;
   }
-  document.getElementById("pane-muhurat").innerHTML = html;
+  return html;
 }
-function muhuratNav(dir) { const d = new Date(CAL_DATE); d.setDate(d.getDate()+dir); CAL_DATE = d; renderMuhuratPane(); }
-function muhuratJump(v) { if (!v) return; const [y,m,d]=v.split("-").map(Number); CAL_DATE = new Date(y,m-1,d); renderMuhuratPane(); }
-function muhuratToday() { const t = new Date(); CAL_DATE = new Date(t.getFullYear(), t.getMonth(), t.getDate()); renderMuhuratPane(); }
+
+// ---- Muhurat WEEK view ----
+function renderMuhuratWeek(date) {
+  const start = new Date(date); start.setDate(start.getDate() - start.getDay());
+  const tz = CURRENT ? CURRENT.input.tz : 5.5;
+  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
+  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const today = new Date();
+  const todayStr = ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
+  let html = '<div class="week-grid">';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const pan = computePanchang(d.getFullYear(), d.getMonth()+1, d.getDate(), lat, lon, tz);
+    const isToday = ymd(d) === todayStr;
+    const yogaLine = pan.specialYogas.length
+      ? `<div class="small" style="color:var(--good);margin-top:4px;">★ ${pan.specialYogas.map(y=>y.name.replace(' Yoga','')).join(', ')}</div>` : "";
+    html += `<div class="day-card ${isToday?'today':''}" onclick="muhuratJumpAndDay('${ymd(d)}')">
+      <div class="d-wd">${t(WEEKDAY_SHORT[d.getDay()])}</div>
+      <div class="d-date">${d.getDate()} ${monthName(d.getMonth()+1)}</div>
+      <div class="d-moon" style="margin-top:6px;">☀ ${fmtTime(pan.sun.sunrise)} – ${fmtTime(pan.sun.sunset)}</div>
+      <div class="small" style="margin-top:4px;color:var(--good);">${t('Abhijit Muhurta')}: ${fmtTime(pan.abhijit.start)}–${fmtTime(pan.abhijit.end)}</div>
+      <div class="small" style="color:var(--bad);">${t('Rahu Kaal')}: ${fmtTime(pan.rahu.start)}–${fmtTime(pan.rahu.end)}</div>
+      ${yogaLine}
+    </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+// ---- Muhurat MONTH view ----
+function renderMuhuratMonth(date) {
+  const y = date.getFullYear(), m = date.getMonth();
+  const first = new Date(y, m, 1);
+  const lastDay = new Date(y, m+1, 0).getDate();
+  const startDow = first.getDay();
+  const tz = CURRENT ? CURRENT.input.tz : 5.5;
+  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
+  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const today = new Date();
+  const todayStr = ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
+  let html = `<h3 style="color:var(--accent);text-align:center;margin-bottom:10px;">${monthName(m+1)} ${y}</h3>`;
+  html += '<div class="month-grid">';
+  for (const wd of ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]) html += `<div class="mh">${t(wd)}</div>`;
+  for (let i = 0; i < startDow; i++) html += '<div class="month-cell empty"></div>';
+  for (let d = 1; d <= lastDay; d++) {
+    const pan = computePanchang(y, m+1, d, lat, lon, tz);
+    const dateObj = new Date(y, m, d);
+    const isToday = ymd(dateObj) === todayStr;
+    // Auspiciousness signal
+    let bgTint = "";
+    const goodYogas = pan.specialYogas.filter(s => s.type === 'good').length;
+    const badYogas  = pan.specialYogas.filter(s => s.type === 'bad').length;
+    if (goodYogas > 0) bgTint = "background:rgba(106,176,76,0.12);";
+    else if (badYogas > 0) bgTint = "background:rgba(231,76,60,0.10);";
+    const yogaShort = pan.specialYogas.map(s => {
+      const sh = s.name === "Guru Pushya Yoga" ? "GP" : s.name === "Ravi Pushya Yoga" ? "RP" : s.name === "Sarvartha Siddhi Yoga" ? "SS" : s.name === "Amrita Siddhi Yoga" ? "AS" : "!";
+      const cls = s.type === 'good' ? 'good' : 'bad';
+      return `<span class="badge ${cls}" style="padding:0 4px;font-size:9px;" title="${s.name}">${sh}</span>`;
+    }).join('');
+    html += `<div class="month-cell ${isToday?'today':''}" style="${bgTint}" onclick="muhuratJumpAndDay('${ymd(dateObj)}')">
+      <div class="mc-date">${d}</div>
+      <div class="small" style="font-size:10px;color:var(--good);">☀ ${fmtTime(pan.sun.sunrise)}</div>
+      <div class="small" style="font-size:10px;color:var(--bad);">R ${fmtTime(pan.rahu.start)}</div>
+      <div style="text-align:center;margin-top:2px;">${yogaShort}</div>
+    </div>`;
+  }
+  html += '</div>';
+  html += `<p class="small" style="margin-top:10px;">Each cell: date • sunrise time • Rahu Kaal start • yoga badges (<b>GP</b>=Guru Pushya, <b>RP</b>=Ravi Pushya, <b>SS</b>=Sarvartha Siddhi, <b>AS</b>=Amrita Siddhi). Green-tinted days have auspicious yogas; red-tinted have inauspicious ones.</p>`;
+  return html;
+}
+
+// ---- Muhurat YEAR view ----
+function renderMuhuratYear(date) {
+  const y = date.getFullYear();
+  const tz = CURRENT ? CURRENT.input.tz : 5.5;
+  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
+  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const today = new Date();
+  const todayStr = ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
+  let html = `<h3 style="color:var(--accent);text-align:center;margin-bottom:10px;">${y}</h3>`;
+  html += '<div class="year-grid">';
+  for (let m = 0; m < 12; m++) {
+    const lastDay = new Date(y, m+1, 0).getDate();
+    const startDow = new Date(y, m, 1).getDay();
+    html += `<div class="year-month"><h4>${monthName(m+1)}</h4><div class="yg">`;
+    for (const wd of ["S","M","T","W","T","F","S"]) html += `<div class="yh">${wd}</div>`;
+    for (let i = 0; i < startDow; i++) html += '<div class="yc empty"></div>';
+    for (let d = 1; d <= lastDay; d++) {
+      const pan = computePanchang(y, m+1, d, lat, lon, tz);
+      const dateObj = new Date(y, m, d);
+      const isToday = ymd(dateObj) === todayStr;
+      let bgTint = "";
+      const goodYogas = pan.specialYogas.filter(s => s.type === 'good').length;
+      const badYogas  = pan.specialYogas.filter(s => s.type === 'bad').length;
+      if (goodYogas > 0) bgTint = "background:rgba(106,176,76,0.18);";
+      else if (badYogas > 0) bgTint = "background:rgba(231,76,60,0.12);";
+      const marker = goodYogas > 0 ? "★" : badYogas > 0 ? "✗" : "·";
+      const markCls = goodYogas > 0 ? "var(--good)" : badYogas > 0 ? "var(--bad)" : "var(--muted)";
+      html += `<div class="yc ${isToday?'today':''}" style="${bgTint}" onclick="muhuratJumpAndDay('${ymd(dateObj)}')">
+        <div class="dt">${d}</div>
+        <div style="font-size:9px;color:${markCls};">${marker}</div>
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  html += `<p class="small" style="margin-top:10px;">★ = day has an auspicious yoga (Guru Pushya, Ravi Pushya, Sarvartha Siddhi, or Amrita Siddhi). ✗ = day has an inauspicious yoga (Vyatipata, Vaidhriti, etc.). Click any day for full muhurat detail.</p>`;
+  return html;
+}
 
 // ============================================================
 // SETTINGS PANE
