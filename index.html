@@ -199,6 +199,26 @@
   .chog-cell.neutral { background: var(--warn-soft); border-color: rgba(245,158,11,0.2); }
   .chog-cell .name { font-size: 11px; font-weight: 600; color: var(--text); }
   .chog-cell .time { font-size: 9px; color: var(--text-2); margin-top: 2px; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+  .chog-cell.current { box-shadow: 0 0 0 2px var(--accent), 0 0 14px rgba(255,140,66,0.25); position: relative; }
+  .chog-cell.current::after { content: 'NOW'; position: absolute; top: -7px; right: 6px;
+    background: var(--accent); color: #fff; font-size: 8px; padding: 1px 5px; border-radius: 6px;
+    font-weight: 700; letter-spacing: 0.5px; }
+  /* Hindu Clock */
+  .clock-card { background: var(--hero-grad); position: relative; overflow: hidden;
+    border: 1px solid var(--border); border-radius: 20px; padding: 22px; box-shadow: var(--shadow-md); }
+  .clock-card::before { content:''; position:absolute; inset:0; background: var(--hero-overlay); pointer-events:none; }
+  .clock-card > * { position: relative; }
+  .clock-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; margin-top: 10px; }
+  .clock-grid .unit .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); font-weight: 600; }
+  .clock-grid .unit .val { font-family: 'Fraunces', serif; font-size: 38px; font-weight: 500; line-height: 1; letter-spacing: -0.03em; }
+  .clock-grid .unit.ghati .val { color: var(--accent); }
+  .clock-grid .unit .sub { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+  .clock-row { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-strong); }
+  .clock-row .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); font-weight: 600; }
+  .clock-row .val { font-family: 'Fraunces', serif; font-size: 16px; color: var(--text); margin-top: 2px; }
+  .clock-row .right { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .clock-progress { height: 4px; background: var(--panel2); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+  .clock-progress > div { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.5s; }
 
   /* Festival banner */
   .festival { background: linear-gradient(135deg, var(--accent-soft), transparent);
@@ -1562,8 +1582,10 @@ function navTo(dest) {
   const bc = document.getElementById("birthCard");
   if (bc) bc.style.display = (dest === "kundli" || dest === "match") ? "" : "none";
   // Lazy render the destination (so we always pick up latest data)
+  // Hindu Clock ticks only while Muhurat is visible
+  if (typeof stopHinduClock === "function") stopHinduClock();
   if (dest === "panchang") renderPanchangPane();
-  else if (dest === "muhurat") renderMuhuratPane();
+  else if (dest === "muhurat") { renderMuhuratPane(); setTimeout(() => startHinduClock(), 50); }
   else if (dest === "match")   renderMatchTab();
   else if (dest === "reminders") renderRemindersPane();
   else if (dest === "settings") renderSettings();
@@ -2884,7 +2906,11 @@ function renderCalDay(date, tz) {
         <div class="val">${LANG==='hi'?f.hi:f.en}</div>
       </div>`).join("")}
     </div>` : "";
-  // Today's reminders (if any)
+  // Today's reminders (if any) — mark "once"/"yearly"/"monthly" fires when viewing today
+  const today = new Date();
+  if (ymd(date) === ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()))) {
+    markRemindersFiredFor(date);
+  }
   const matchedReminders = remindersForDate(date);
   const remindersHtml = matchedReminders.length ? `
     <div class="festival" style="margin-top:14px;">
@@ -2968,13 +2994,13 @@ function renderCalDay(date, tz) {
       <div>
         <table>
           <thead><tr><th colspan="3" style="text-align:center;">Day Choghadia (Sunrise → Sunset)</th></tr><tr><th>Slot</th><th>Time</th><th>Type</th></tr></thead>
-          <tbody>${pan.choghadia.day.map(c => `<tr style="border-left:3px solid var(--${c.type==='good'?'good':c.type==='bad'?'bad':'accent'});"><td><b>${c.name}</b></td><td>${fmtTime(c.start)} – ${fmtTime(c.end)}</td><td>${c.type}</td></tr>`).join("")}</tbody>
+          <tbody>${pan.choghadia.day.map(c => `<tr style="border-left:3px solid var(--${c.type==='good'?'good':c.type==='bad'?'bad':'accent'});${isCurrentChoghadia(c, date)?'background:var(--accent-soft);':''}"><td><b>${c.name}</b>${isCurrentChoghadia(c, date)?' <span class="chip accent" style="padding:1px 6px;font-size:9px;">NOW</span>':''}</td><td>${fmtTime(c.start)} – ${fmtTime(c.end)}</td><td>${c.type}</td></tr>`).join("")}</tbody>
         </table>
       </div>
       <div>
         <table>
           <thead><tr><th colspan="3" style="text-align:center;">Night Choghadia (Sunset → Sunrise)</th></tr><tr><th>Slot</th><th>Time</th><th>Type</th></tr></thead>
-          <tbody>${pan.choghadia.night.map(c => `<tr style="border-left:3px solid var(--${c.type==='good'?'good':c.type==='bad'?'bad':'accent'});"><td><b>${c.name}</b></td><td>${fmtTime(c.start)} – ${fmtTime(c.end)}</td><td>${c.type}</td></tr>`).join("")}</tbody>
+          <tbody>${pan.choghadia.night.map(c => `<tr style="border-left:3px solid var(--${c.type==='good'?'good':c.type==='bad'?'bad':'accent'});${isCurrentChoghadia(c, date)?'background:var(--accent-soft);':''}"><td><b>${c.name}</b>${isCurrentChoghadia(c, date)?' <span class="chip accent" style="padding:1px 6px;font-size:9px;">NOW</span>':''}</td><td>${fmtTime(c.start)} – ${fmtTime(c.end)}</td><td>${c.type}</td></tr>`).join("")}</tbody>
         </table>
       </div>
     </div>
@@ -3471,7 +3497,11 @@ function renderMuhuratDay(date) {
   const dateStr = `${date.getDate()} ${monthName(date.getMonth()+1)} ${date.getFullYear()}`;
   const wdName = t(WEEKDAY_NAMES[pan.weekday]);
   const sun = pan.sun;
+  // Hindu Clock only makes sense for today
+  const today = new Date();
+  const showClock = ymd(date) === ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
   let html = `
+    ${showClock ? renderHinduClock() : ""}
     <div class="card">
       <h3 style="color:var(--accent);">${wdName}, ${dateStr}</h3>
       <div class="small">${t('Tithi')}: ${t(pan.paksha)} ${t(pan.tithiName)} • ${t('Nakshatra')}: ${pan.nakshatra.name} • ${t('Yoga')}: ${pan.yogaName} • ${t('Karana')}: ${pan.karanaName}</div>
@@ -3507,12 +3537,12 @@ function renderMuhuratDay(date) {
       <div class="twin-cols">
         <div>
           <table><thead><tr><th colspan="3" style="text-align:center;">${t('Day Choghadia')}</th></tr><tr><th>Slot</th><th>Time</th><th>Type</th></tr></thead>
-            <tbody>${pan.choghadia.day.map(c => `<tr style="border-left:3px solid var(--${c.type==='good'?'good':c.type==='bad'?'bad':'accent'});"><td><b>${c.name}</b></td><td>${fmtTime(c.start)} – ${fmtTime(c.end)}</td><td>${c.type}</td></tr>`).join("")}</tbody>
+            <tbody>${pan.choghadia.day.map(c => `<tr style="border-left:3px solid var(--${c.type==='good'?'good':c.type==='bad'?'bad':'accent'});${isCurrentChoghadia(c, date)?'background:var(--accent-soft);':''}"><td><b>${c.name}</b>${isCurrentChoghadia(c, date)?' <span class="chip accent" style="padding:1px 6px;font-size:9px;">NOW</span>':''}</td><td>${fmtTime(c.start)} – ${fmtTime(c.end)}</td><td>${c.type}</td></tr>`).join("")}</tbody>
           </table>
         </div>
         <div>
           <table><thead><tr><th colspan="3" style="text-align:center;">${t('Night Choghadia')}</th></tr><tr><th>Slot</th><th>Time</th><th>Type</th></tr></thead>
-            <tbody>${pan.choghadia.night.map(c => `<tr style="border-left:3px solid var(--${c.type==='good'?'good':c.type==='bad'?'bad':'accent'});"><td><b>${c.name}</b></td><td>${fmtTime(c.start)} – ${fmtTime(c.end)}</td><td>${c.type}</td></tr>`).join("")}</tbody>
+            <tbody>${pan.choghadia.night.map(c => `<tr style="border-left:3px solid var(--${c.type==='good'?'good':c.type==='bad'?'bad':'accent'});${isCurrentChoghadia(c, date)?'background:var(--accent-soft);':''}"><td><b>${c.name}</b>${isCurrentChoghadia(c, date)?' <span class="chip accent" style="padding:1px 6px;font-size:9px;">NOW</span>':''}</td><td>${fmtTime(c.start)} – ${fmtTime(c.end)}</td><td>${c.type}</td></tr>`).join("")}</tbody>
           </table>
         </div>
       </div>
@@ -3911,6 +3941,95 @@ function renderSavedProfilesCard() {
 }
 
 // ============================================================
+// HINDU CLOCK — live ghati / pal / vipal + prahar since sunrise.
+// 60 ghati per day, 1 ghati = 24 min, 1 ghati = 60 pal (1 pal = 24 sec),
+// 1 pal = 60 vipal (1 vipal = 0.4 sec). 8 prahar in day+night (4 day + 4 night).
+// ============================================================
+const PRAHAR_DAY   = ["Purvanha","Madhyanha","Aparanha","Sayan"];
+const PRAHAR_NIGHT = ["Pradosh","Nishith","Triayama","Usha"];
+
+function hinduClockState(nowH, sunrise, sunset) {
+  if (sunrise === null || sunset === null || isNaN(sunrise) || isNaN(sunset))
+    return { ghati:0, pal:0, vipal:0, prahar:"—", prahar_idx:0, prahar_progress:0, isDay:true };
+  const isDay = (nowH >= sunrise && nowH < sunset);
+  let elapsed; // hours since sunrise (always positive)
+  if (nowH >= sunrise) elapsed = nowH - sunrise;
+  else elapsed = (24 - sunrise) + nowH;
+  const totalSec = elapsed * 3600;
+  const ghati = Math.floor(totalSec / 1440);
+  const pal   = Math.floor((totalSec - ghati * 1440) / 24);
+  const vipal = Math.floor((totalSec - ghati * 1440 - pal * 24) / 0.4);
+  let prahar, prahar_idx, prahar_progress;
+  if (isDay) {
+    const dayLen = sunset - sunrise;
+    const inDay = nowH - sunrise;
+    prahar_idx = Math.min(3, Math.floor(inDay * 4 / dayLen));
+    prahar = PRAHAR_DAY[prahar_idx];
+    const plen = dayLen / 4;
+    prahar_progress = (inDay - prahar_idx * plen) / plen;
+  } else {
+    const nightLen = (24 - sunset) + sunrise;
+    let inNight = (nowH >= sunset) ? (nowH - sunset) : ((24 - sunset) + nowH);
+    prahar_idx = Math.min(3, Math.floor(inNight * 4 / nightLen));
+    prahar = PRAHAR_NIGHT[prahar_idx];
+    const plen = nightLen / 4;
+    prahar_progress = (inNight - prahar_idx * plen) / plen;
+  }
+  return { ghati, pal, vipal, prahar, prahar_idx, prahar_progress, isDay };
+}
+
+function renderHinduClock() {
+  const now = new Date();
+  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
+  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const tz  = CURRENT ? CURRENT.input.tz  : 5.5;
+  const sun = sunRiseSet(now.getFullYear(), now.getMonth()+1, now.getDate(), lat, lon, tz);
+  const nowH = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
+  const s = hinduClockState(nowH, sun.sunrise, sun.sunset);
+  const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  return `
+    <div id="hinduClockCard" class="clock-card">
+      <div class="section-h" style="padding:0;color:var(--accent);">Hindu Clock <span class="sub" style="color:var(--text-3);">since today's sunrise · ${s.isDay ? 'Day' : 'Night'}</span></div>
+      <div class="clock-grid">
+        <div class="unit ghati"><div class="val">${String(s.ghati).padStart(2,'0')}</div><div class="lbl">Ghati</div><div class="sub">24 min each</div></div>
+        <div class="unit"><div class="val">${String(s.pal).padStart(2,'0')}</div><div class="lbl">Pal</div><div class="sub">24 sec each</div></div>
+        <div class="unit"><div class="val">${String(s.vipal).padStart(2,'0')}</div><div class="lbl">Vipal</div><div class="sub">0.4 sec each</div></div>
+      </div>
+      <div class="clock-row">
+        <div><div class="lbl">Current Prahar</div><div class="val">${s.prahar} (${s.prahar_idx+1}/4)</div></div>
+        <div class="right">${ts}</div>
+      </div>
+      <div class="clock-progress"><div style="width:${Math.floor(s.prahar_progress*100)}%;"></div></div>
+    </div>
+  `;
+}
+
+let HINDU_CLOCK_TIMER = null;
+function startHinduClock() {
+  stopHinduClock();
+  const update = () => {
+    const el = document.getElementById("hinduClockCard");
+    if (!el) { stopHinduClock(); return; }
+    el.outerHTML = renderHinduClock();
+  };
+  HINDU_CLOCK_TIMER = setInterval(update, 1000);
+}
+function stopHinduClock() {
+  if (HINDU_CLOCK_TIMER) { clearInterval(HINDU_CLOCK_TIMER); HINDU_CLOCK_TIMER = null; }
+}
+
+// Returns true if the given choghadia slot covers "now" (and dateObj is today)
+function isCurrentChoghadia(c, dateObj) {
+  const now = new Date();
+  if (dateObj.getFullYear() !== now.getFullYear() ||
+      dateObj.getMonth() !== now.getMonth() ||
+      dateObj.getDate() !== now.getDate()) return false;
+  const h = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
+  if (c.start <= c.end) return h >= c.start && h < c.end;
+  return h >= c.start || h < c.end; // wraps past midnight
+}
+
+// ============================================================
 // REMINDERS — condition-based notifications. Stored in localStorage.
 // A reminder triggers whenever today's panchang matches all its set
 // conditions (any null condition is "any"). Supports:
@@ -3937,15 +4056,41 @@ function reminderMatchesPanchang(r, pan, dateObj) {
   if (r.date) {
     const yyyymmdd = ymd(dateObj);
     const mmdd = yyyymmdd.slice(5);
-    if (r.date.length === 10) { // YYYY-MM-DD exact
+    if (r.date.length === 10) {
       if (r.date !== yyyymmdd) return false;
-    } else if (r.date.length === 5) { // MM-DD recurring yearly
+    } else if (r.date.length === 5) {
       if (r.date !== mmdd) return false;
     }
   }
-  // At least one condition must be set (otherwise it'd fire every day)
-  const anyCondition = r.tithi || r.vaar !== null && r.vaar !== undefined || r.nakshatra !== null && r.nakshatra !== undefined || r.month || r.date || (r.yoga !== null && r.yoga !== undefined) || r.paksha === "Shukla" || r.paksha === "Krishna";
-  return anyCondition;
+  const anyCondition = r.tithi || (r.vaar !== null && r.vaar !== undefined) || (r.nakshatra !== null && r.nakshatra !== undefined) || r.month || r.date || (r.yoga !== null && r.yoga !== undefined) || r.paksha === "Shukla" || r.paksha === "Krishna";
+  if (!anyCondition) return false;
+  // Recurrence gate
+  const rec = r.recurrence || "repeat";
+  if (rec === "repeat") return true;
+  const last = r.lastFired;
+  if (!last) return true;
+  const lastDate = new Date(last);
+  if (rec === "once") return false; // already fired once
+  if (rec === "yearly")  return lastDate.getFullYear() !== dateObj.getFullYear();
+  if (rec === "monthly") return !(lastDate.getFullYear() === dateObj.getFullYear() && lastDate.getMonth() === dateObj.getMonth());
+  return true;
+}
+
+// Mark today's matching reminders as fired (call once when displaying today's panchang).
+// This is what auto-deactivates "once" and prevents re-fire within yearly/monthly windows.
+function markRemindersFiredFor(dateObj) {
+  const todayStr = ymd(dateObj);
+  const arr = loadReminders();
+  let dirty = false;
+  if (!CURRENT) return;
+  const pan = computePanchang(dateObj.getFullYear(), dateObj.getMonth()+1, dateObj.getDate(), CURRENT.input.lat, CURRENT.input.lon, CURRENT.input.tz);
+  for (const r of arr) {
+    if (!reminderMatchesPanchang(r, pan, dateObj)) continue;
+    const last = r.lastFired ? ymd(new Date(r.lastFired)) : null;
+    if (last !== todayStr) { r.lastFired = dateObj.getTime(); dirty = true; }
+    if ((r.recurrence || "repeat") === "once") { r.active = false; dirty = true; }
+  }
+  if (dirty) saveReminders(arr);
 }
 
 function remindersForDate(dateObj) {
@@ -4065,6 +4210,16 @@ function openReminderEditor(idx) {
       <div style="grid-column:1/-1;"><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Gregorian Date (optional)</label>
         <input id="rmDate" type="text" value="${r.date||''}" placeholder="YYYY-MM-DD for one-time, or MM-DD for every year" /></div>
 
+      <div style="grid-column:1/-1;"><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Recurrence</label>
+        <select id="rmRecurrence">
+          <option value="repeat" ${(!r.recurrence||r.recurrence==='repeat')?'selected':''}>Repeat — fires every day the conditions match</option>
+          <option value="once" ${r.recurrence==='once'?'selected':''}>Once — auto-deactivate after the first match</option>
+          <option value="yearly" ${r.recurrence==='yearly'?'selected':''}>Yearly — fires once per Gregorian year on the next match</option>
+          <option value="monthly" ${r.recurrence==='monthly'?'selected':''}>Monthly — fires once per Gregorian month on the next match</option>
+        </select>
+        <div class="small" style="color:var(--text-3);margin-top:4px;">Tip: combine with conditions. E.g., Tithi 11 + Repeat = every Ekadashi. Date "08-15" + Yearly = once a year on 15 August.</div>
+      </div>
+
       <div style="grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
         ${idx !== null ? `<button class="danger" onclick="deleteReminderFromEditor()">Delete</button>` : ""}
         <button class="secondary" onclick="closeSavedModal()">Cancel</button>
@@ -4092,8 +4247,10 @@ function saveReminderFromEditor() {
     month:    get("rmMonth"),
     yoga:     getInt("rmYoga"),
     date:     get("rmDate"),
+    recurrence: get("rmRecurrence") || "repeat",
     active:   true,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    lastFired: (EDITING_REMINDER !== null ? loadReminders()[EDITING_REMINDER].lastFired : null)
   };
   const arr = loadReminders();
   if (EDITING_REMINDER === null) arr.push(r);
