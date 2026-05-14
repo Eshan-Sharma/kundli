@@ -105,7 +105,7 @@
   .top-tabs { display: none; }
   /* Floating bottom navigation */
   .bottom-nav { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px;
-    width: calc(100% - 32px); max-width: 460px; z-index: 100;
+    width: calc(100% - 24px); max-width: 540px; z-index: 100;
     background: color-mix(in srgb, var(--panel) 92%, transparent);
     backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
     border: 1px solid var(--border-strong); border-radius: 22px;
@@ -475,6 +475,7 @@
       <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
       <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
       <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+      <symbol id="i-prashna" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></symbol>
     </defs>
   </svg>
 
@@ -537,6 +538,7 @@
       </section>
       <section id="pane-muhurat"   class="nav-pane"></section>
       <section id="pane-match"     class="nav-pane"></section>
+      <section id="pane-prashna"   class="nav-pane"></section>
       <section id="pane-reminders" class="nav-pane"></section>
       <section id="pane-settings"  class="nav-pane"></section>
     </div>
@@ -555,6 +557,7 @@
     <button class="nav-btn active" data-nav="panchang"><svg><use href="#i-calendar"/></svg><span class="lbl" data-lbl="Panchang">Panchang</span></button>
     <button class="nav-btn" data-nav="muhurat"><svg><use href="#i-flame"/></svg><span class="lbl" data-lbl="Muhurat">Muhurat</span></button>
     <button class="nav-btn" data-nav="kundli"><svg><use href="#i-planet"/></svg><span class="lbl" data-lbl="Kundli">Kundli</span></button>
+    <button class="nav-btn" data-nav="prashna"><svg><use href="#i-prashna"/></svg><span class="lbl" data-lbl="Prashna">Prashna</span></button>
     <button class="nav-btn" data-nav="match"><svg><use href="#i-heart"/></svg><span class="lbl" data-lbl="Milan">Milan</span></button>
     <button class="nav-btn" data-nav="reminders"><svg><use href="#i-bell"/></svg><span class="lbl" data-lbl="Reminders">Reminders</span></button>
   </nav>
@@ -1587,6 +1590,7 @@ function navTo(dest) {
   if (dest === "panchang") renderPanchangPane();
   else if (dest === "muhurat") { renderMuhuratPane(); setTimeout(() => startHinduClock(), 50); }
   else if (dest === "match")   renderMatchTab();
+  else if (dest === "prashna") renderPrashnaPane();
   else if (dest === "reminders") renderRemindersPane();
   else if (dest === "settings") renderSettings();
   // Kundli pane just shows whatever sub-tab is active
@@ -2672,6 +2676,103 @@ function computeChoghadia(weekday, sunrise, sunset, dayLen) {
 }
 
 // Special auspicious yogas based on weekday + nakshatra
+// Tithi window: each tithi spans 12° of (Moon-Sun) longitude. (Moon-Sun) advances ~12°/day,
+// so a tithi typically lasts 20-26 hours depending on Moon's speed. Festivals piggy-back on
+// the tithi they are tied to — the festival is "live" while its tithi is current.
+function tithiWindowJD(jdNoonUT) {
+  const moonLon = moonLongitude(jdNoonUT);
+  const sunLon  = sunLongitude(jdNoonUT);
+  const diff = mod360(moonLon - sunLon);
+  const w = 12.0;
+  const idx = Math.floor(diff / w);
+  const startLon = idx * w, endLon = (idx + 1) * w;
+  // Speed of (Moon - Sun)
+  let dM = moonLongitude(jdNoonUT + 0.5) - moonLongitude(jdNoonUT - 0.5); if (dM < 0) dM += 360;
+  let dS = sunLongitude(jdNoonUT  + 0.5) - sunLongitude(jdNoonUT  - 0.5); if (dS < 0) dS += 360;
+  let speed = dM - dS;
+  if (speed < 0) speed += 360;
+  let dSince = (diff - startLon) / speed;
+  let dUntil = (endLon - diff) / speed;
+  if (dSince < 0) dSince += w / speed;
+  if (dUntil < 0) dUntil += w / speed;
+  return { startJD: jdNoonUT - dSince, endJD: jdNoonUT + dUntil, idx };
+}
+
+// ---- TIME-WINDOW helpers (used so panchang shows real start–end for transient yogas) ----
+// A Nityayoga (Vyatipata etc.) lasts one (360/27)° step of (Sun+Moon)-longitude.
+// Combined Sun+Moon speed is ~14°/day → each yoga ≈ 22-24 hrs. We finite-difference for speed.
+function nityayogaWindowJD(jdNoonUT) {
+  const sum = mod360(sunLongitude(jdNoonUT) + moonLongitude(jdNoonUT));
+  const w = 360.0 / 27.0;
+  const idx = Math.floor(sum / w);
+  const startLon = idx * w, endLon = (idx + 1) * w;
+  // Speed via 1-day finite difference (returns deg/day, always positive for Sun+Moon)
+  let speed = mod360(sunLongitude(jdNoonUT + 0.5) + moonLongitude(jdNoonUT + 0.5))
+            - mod360(sunLongitude(jdNoonUT - 0.5) + moonLongitude(jdNoonUT - 0.5));
+  if (speed < 0) speed += 360;
+  // Days since start, days to end
+  let dSince = (sum - startLon) / speed;
+  let dUntil = (endLon - sum) / speed;
+  // Wraparound safety
+  if (dSince < 0) dSince += w / speed;
+  if (dUntil < 0) dUntil += w / speed;
+  return { startJD: jdNoonUT - dSince, endJD: jdNoonUT + dUntil, idx };
+}
+
+// Moon's current nakshatra: start/end JDs. (Moon speed ~11-15°/day; nak width 13.333°.)
+function nakshatraWindowJD(jdNoonUT) {
+  const ay = ayanamsa(jdNoonUT);
+  const moonSid = mod360(moonLongitude(jdNoonUT) - ay);
+  const w = 360.0 / 27.0;
+  const idx = Math.floor(moonSid / w);
+  const startLon = idx * w, endLon = (idx + 1) * w;
+  let speed = moonLongitude(jdNoonUT + 0.5) - moonLongitude(jdNoonUT - 0.5);
+  if (speed < 0) speed += 360;
+  let dSince = (moonSid - startLon) / speed;
+  let dUntil = (endLon - moonSid) / speed;
+  if (dSince < 0) dSince += w / speed;
+  if (dUntil < 0) dUntil += w / speed;
+  return { startJD: jdNoonUT - dSince, endJD: jdNoonUT + dUntil, idx };
+}
+
+// Format a JD as "HH:MM" local — with a small "prev"/"next" tag if it falls on a different day
+// than the date being viewed.
+function fmtJDLocal(jd, tz, viewY, viewM, viewD) {
+  const localJD = jd + tz / 24;
+  const ld = jdToDate(localJD);
+  const hh = Math.floor(ld.hour);
+  const mn = Math.floor((ld.hour - hh) * 60);
+  const t = String(hh).padStart(2,'0') + ':' + String(mn).padStart(2,'0');
+  const localD = new Date(Date.UTC(ld.year, ld.month - 1, ld.day));
+  const viewD2 = new Date(Date.UTC(viewY, viewM - 1, viewD));
+  const diffDays = Math.round((localD - viewD2) / (24 * 3600 * 1000));
+  if (diffDays === 0)  return t;
+  if (diffDays === -1) return t + ' <span class="small" style="color:var(--text-3)">(prev)</span>';
+  if (diffDays === 1)  return t + ' <span class="small" style="color:var(--text-3)">(next)</span>';
+  return t + ' <span class="small" style="color:var(--text-3)">(' + ld.day + ' ' + monthName(ld.month) + ')</span>';
+}
+
+// Active time-window of a *special* yoga (Guru Pushya / Ravi Pushya / Sarvartha Siddhi /
+// Amrita Siddhi). These are nakshatra-on-weekday yogas — active only while the Moon
+// is in that nakshatra AND it is the matching weekday. The weekday spans sunrise→next-sunrise.
+function specialYogaActiveWindowJD(yogaName, yY, yM, yD, lat, lon, tz, jdNoonUT) {
+  if (!["Guru Pushya Yoga","Ravi Pushya Yoga","Sarvartha Siddhi Yoga","Amrita Siddhi Yoga"].includes(yogaName))
+    return null; // for these, the nityayoga itself is the window
+  const nak = nakshatraWindowJD(jdNoonUT);
+  // Today's & tomorrow's sunrise — bracket the Hindu day
+  const sunT = sunRiseSet(yY, yM, yD, lat, lon, tz);
+  const tmrwDate = new Date(yY, yM - 1, yD + 1);
+  const sunN = sunRiseSet(tmrwDate.getFullYear(), tmrwDate.getMonth()+1, tmrwDate.getDate(), lat, lon, tz);
+  if (sunT.sunrise === null || sunN.sunrise === null) return { startJD: nak.startJD, endJD: nak.endJD };
+  // Convert sunrise hours to JDs (UT)
+  const todayRiseJD = julianDay(yY, yM, yD, sunT.sunrise - tz);
+  const tmrwRiseJD  = julianDay(tmrwDate.getFullYear(), tmrwDate.getMonth()+1, tmrwDate.getDate(), sunN.sunrise - tz);
+  // Intersection of nakshatra window and weekday window
+  const startJD = Math.max(nak.startJD, todayRiseJD);
+  const endJD   = Math.min(nak.endJD,   tmrwRiseJD);
+  return (endJD > startJD) ? { startJD, endJD } : { startJD: nak.startJD, endJD: nak.endJD };
+}
+
 function specialYogas(weekday, nakIdx, yogaName) {
   const list = [];
   // Guru Pushya: Thursday + Pushya (nakshatra idx 7)
@@ -2898,14 +2999,24 @@ function renderCalDay(date, tz) {
   const pan = computePanchang(Y, M, D, lat, lon, tz);
   const headline = `${t(WEEKDAY_NAMES[info.weekday])}, ${D} ${monthName(M)} ${Y}`;
   const fests = festivalsForPanchang(pan);
-  const festHtml = fests.length ? `
+  const festHtml = fests.length ? (() => {
+    // Festival is tied to a tithi within a Hindu month — the active window is the tithi window.
+    // Many festivals add their own observance time (Diwali after sunset, Janmashtami at midnight,
+    // Karwa Chauth at moonrise, Ekadashi until next sunrise). We surface the tithi window as the
+    // base — the astrologer/user can layer the observance rule on top.
+    const tWin = tithiWindowJD(julianDay(Y, M, D, 12 - tz));
+    const range = `${fmtJDLocal(tWin.startJD, tz, Y, M, D)} → ${fmtJDLocal(tWin.endJD, tz, Y, M, D)}`;
+    return `
     <div style="margin-top:14px;">
       <h4 style="color:var(--accent);margin-bottom:6px;">${t('Festivals')}</h4>
       ${fests.map(f => `<div class="info-cell" style="border-left-color:var(--good);margin-bottom:6px;">
-        <div class="lbl">${t('Auspicious')}</div>
+        <div class="lbl">${t('Auspicious')} · Tithi window</div>
         <div class="val">${LANG==='hi'?f.hi:f.en}</div>
+        <div class="small mono" style="margin-top:2px;color:var(--accent);">⏱ ${range}</div>
+        <div class="small" style="color:var(--text-3);margin-top:2px;">Tithi: ${t(pan.paksha)} ${t(pan.tithiName)} of ${t(pan.hinduMonth)}. Note: some observances (Diwali · evening; Janmashtami · midnight; Karwa Chauth · moonrise; Ekadashi · till next sunrise) refine this window further.</div>
       </div>`).join("")}
-    </div>` : "";
+    </div>`;
+  })() : "";
   // Today's reminders (if any) — mark "once"/"yearly"/"monthly" fires when viewing today
   const today = new Date();
   if (ymd(date) === ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()))) {
@@ -2942,16 +3053,25 @@ function renderCalDay(date, tz) {
     ? info.good.map(d => `<b style="color:var(--good)">${DIR_NAME[d]} (${d})</b>`).join(" &nbsp;•&nbsp; ")
     : `<span class="badge bad">Both Moon's direction and its right are blocked today — travel sparingly.</span>`;
 
-  // ---- Special yogas block ----
+  // ---- Special yogas block (with actual active time-windows — these are NOT all-day events) ----
   let yogasHtml = "";
   if (pan.specialYogas.length > 0) {
+    const jdNoonUT = julianDay(Y, M, D, 12 - tz);
     yogasHtml = `<div style="margin-top:14px;">
       <h4 style="color:var(--accent);margin-bottom:6px;">Special Yogas Today</h4>` +
-      pan.specialYogas.map(y => `<div class="info-cell" style="border-left-color:${y.type==='good'?'var(--good)':'var(--bad)'};margin-bottom:6px;">
-        <div class="lbl">${y.type==='good'?'Auspicious':'Inauspicious'}</div>
-        <div class="val">${y.name}</div>
-        <div class="small">${y.note}</div>
-      </div>`).join("") +
+      pan.specialYogas.map(y => {
+        // Auspicious yogas → nakshatra ∩ weekday window. Inauspicious (Atiganda etc.) → nityayoga window.
+        const winAuspicious = specialYogaActiveWindowJD(y.name, Y, M, D, lat, lon, tz, jdNoonUT);
+        const win = winAuspicious || nityayogaWindowJD(jdNoonUT);
+        const start = fmtJDLocal(win.startJD, tz, Y, M, D);
+        const end   = fmtJDLocal(win.endJD,   tz, Y, M, D);
+        return `<div class="info-cell" style="border-left-color:${y.type==='good'?'var(--good)':'var(--bad)'};margin-bottom:6px;">
+          <div class="lbl">${y.type==='good'?'Auspicious':'Inauspicious'} · Active window</div>
+          <div class="val">${y.name}</div>
+          <div class="small mono" style="margin-top:2px;color:var(--accent);">⏱ ${start} → ${end}</div>
+          <div class="small">${y.note}</div>
+        </div>`;
+      }).join("") +
       `</div>`;
   }
 
@@ -2959,9 +3079,9 @@ function renderCalDay(date, tz) {
   const panchangHtml = `
     <h4 style="color:var(--accent);margin-top:14px;">${t('Panchang')}</h4>
     <div class="info-row">
-      <div class="info-cell"><div class="lbl">${t('Tithi')}</div><div class="val">${t(pan.paksha)} ${t(pan.tithiName)}</div></div>
-      <div class="info-cell"><div class="lbl">${t('Nakshatra')}</div><div class="val">${pan.nakshatra.name} (Pada ${pan.nakshatra.pada})</div></div>
-      <div class="info-cell"><div class="lbl">${t('Yoga')}</div><div class="val">${pan.yogaName} ${pan.isYogaBad?`<span class="badge bad">${t('Inauspicious')}</span>`:''}</div></div>
+      <div class="info-cell"><div class="lbl">${t('Tithi')}</div><div class="val">${t(pan.paksha)} ${t(pan.tithiName)}</div>${(()=>{const w=tithiWindowJD(julianDay(Y,M,D,12-tz));return `<div class="small mono" style="color:var(--text-3);margin-top:2px;">⏱ ${fmtJDLocal(w.startJD,tz,Y,M,D)} → ${fmtJDLocal(w.endJD,tz,Y,M,D)}</div>`;})()}</div>
+      <div class="info-cell"><div class="lbl">${t('Nakshatra')}</div><div class="val">${pan.nakshatra.name} (Pada ${pan.nakshatra.pada})</div>${(()=>{const w=nakshatraWindowJD(julianDay(Y,M,D,12-tz));return `<div class="small mono" style="color:var(--text-3);margin-top:2px;">⏱ ${fmtJDLocal(w.startJD,tz,Y,M,D)} → ${fmtJDLocal(w.endJD,tz,Y,M,D)}</div>`;})()}</div>
+      <div class="info-cell"><div class="lbl">${t('Yoga')}</div><div class="val">${pan.yogaName} ${pan.isYogaBad?`<span class="badge bad">${t('Inauspicious')}</span>`:''}</div>${(()=>{const w=nityayogaWindowJD(julianDay(Y,M,D,12-tz));return `<div class="small mono" style="color:var(--text-3);margin-top:2px;">⏱ ${fmtJDLocal(w.startJD,tz,Y,M,D)} → ${fmtJDLocal(w.endJD,tz,Y,M,D)}</div>`;})()}</div>
       <div class="info-cell"><div class="lbl">${t('Karana')}</div><div class="val">${pan.karanaName}</div></div>
       <div class="info-cell"><div class="lbl">${t('Vaar')}</div><div class="val">${t(WEEKDAY_NAMES[pan.weekday])}</div></div>
       <div class="info-cell"><div class="lbl">${t('Hindu Month')} / ${t('Ritu')}</div><div class="val">${t(pan.hinduMonth)} / ${t(pan.ritu)}</div></div>
@@ -3505,18 +3625,49 @@ function renderMuhuratDay(date) {
   const showClock = ymd(date) === ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
   let html = `
     ${showClock ? renderHinduClock() : ""}
-    <div class="card">
-      <h3 style="color:var(--accent);">${wdName}, ${dateStr}</h3>
-      <div class="small">${t('Tithi')}: ${t(pan.paksha)} ${t(pan.tithiName)} • ${t('Nakshatra')}: ${pan.nakshatra.name} • ${t('Yoga')}: ${pan.yogaName} • ${t('Karana')}: ${pan.karanaName}</div>
-    </div>
+    ${(() => {
+       // Time windows for transient panchang elements (these are NOT all-day).
+       const Y3 = date.getFullYear(), M3 = date.getMonth()+1, D3 = date.getDate();
+       const jdNoonUT3 = julianDay(Y3, M3, D3, 12 - tz);
+       const nakWin = nakshatraWindowJD(jdNoonUT3);
+       const yogaWin = nityayogaWindowJD(jdNoonUT3);
+       const nakRange = `${fmtJDLocal(nakWin.startJD, tz, Y3, M3, D3)} → ${fmtJDLocal(nakWin.endJD, tz, Y3, M3, D3)}`;
+       const yogaRange = `${fmtJDLocal(yogaWin.startJD, tz, Y3, M3, D3)} → ${fmtJDLocal(yogaWin.endJD, tz, Y3, M3, D3)}`;
+       return `<div class="card">
+         <h3 style="color:var(--accent);">${wdName}, ${dateStr}</h3>
+         <div class="small" style="margin-top:6px;">${t('Tithi')}: ${t(pan.paksha)} ${t(pan.tithiName)} &nbsp;•&nbsp; ${t('Karana')}: ${pan.karanaName}</div>
+         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:10px;">
+           <div class="info-cell">
+             <div class="lbl">${t('Nakshatra')}</div>
+             <div class="val">${pan.nakshatra.name} (Pada ${pan.nakshatra.pada})</div>
+             <div class="small mono" style="color:var(--text-3);margin-top:2px;">⏱ ${nakRange}</div>
+           </div>
+           <div class="info-cell">
+             <div class="lbl">${t('Yoga')}</div>
+             <div class="val">${pan.yogaName} ${pan.isYogaBad?`<span class="badge bad">${t('Inauspicious')}</span>`:''}</div>
+             <div class="small mono" style="color:var(--text-3);margin-top:2px;">⏱ ${yogaRange}</div>
+           </div>
+         </div>
+       </div>`;
+    })()}
     ${pan.specialYogas.length ? `<div class="card">
       <h3 style="color:var(--accent);margin-bottom:10px;">${t('Special Yogas Today')}</h3>
-      ${pan.specialYogas.map(y => `
-        <div class="info-cell" style="border-left-color:${y.type==='good'?'var(--good)':'var(--bad)'};margin-bottom:8px;">
-          <div class="lbl">${y.type==='good'?t('Auspicious'):t('Inauspicious')}</div>
-          <div class="val">${y.name}</div>
-          <div class="small">${y.note}</div>
-        </div>`).join("")}
+      ${(() => {
+        const Y2 = date.getFullYear(), M2 = date.getMonth()+1, D2 = date.getDate();
+        const jdNoonUT2 = julianDay(Y2, M2, D2, 12 - tz);
+        return pan.specialYogas.map(y => {
+          const winA = specialYogaActiveWindowJD(y.name, Y2, M2, D2, lat, lon, tz, jdNoonUT2);
+          const win = winA || nityayogaWindowJD(jdNoonUT2);
+          const start = fmtJDLocal(win.startJD, tz, Y2, M2, D2);
+          const end   = fmtJDLocal(win.endJD,   tz, Y2, M2, D2);
+          return `<div class="info-cell" style="border-left-color:${y.type==='good'?'var(--good)':'var(--bad)'};margin-bottom:8px;">
+            <div class="lbl">${y.type==='good'?t('Auspicious'):t('Inauspicious')} · Active window</div>
+            <div class="val">${y.name}</div>
+            <div class="small mono" style="margin-top:2px;color:var(--accent);">⏱ ${start} → ${end}</div>
+            <div class="small">${y.note}</div>
+          </div>`;
+        }).join("");
+      })()}
     </div>` : ""}
   `;
   if (sun.sunrise !== null) {
@@ -4454,6 +4605,814 @@ function toggleReminderActive(idx) {
   arr[idx].active = !arr[idx].active;
   saveReminders(arr);
   renderRemindersPane();
+}
+
+// ============================================================
+// PRASHNA KUNDLI — Horary astrology DECISION-SUPPORT TOOL.
+//
+// PHILOSOPHY: This module does NOT pronounce verdicts. It surfaces every
+// factor a Vedic astrologer would weigh — significators, lagna ripeness,
+// Moon's state, Tajika aspects between selected significators, Ithasala
+// (applying/separating connections with orbs), sub-yogas (Kamboola,
+// Nakta, Yamaya, Manau), and timing estimates — and lets the astrologer
+// judge. The astrologer drives by clicking houses on the chart.
+//
+// REFERENCES: Prashna Marga (Kerala school), Tajika Neelakanthi (Persian-
+// influenced Sanskrit horary), classical Parashari for house meanings.
+//
+// ENGINE: Uses the existing offline planetary engine (Brown's lunar theory
+// + simplified VSOP for grahas + mean Rahu). A future upgrade could swap
+// in astronomy-engine for higher precision — the analyzer API would not
+// change, since it consumes a positions table.
+// ============================================================
+
+const PRASHNA_HOUSE_SIG = [
+  { num:1,  names:["Lagna","Tanu"],     gloss:"Self, body, the question itself, the querent's overall situation, mind, vitality." },
+  { num:2,  names:["Dhana"],            gloss:"Wealth, family, speech, immediate accumulated assets, food. (Lost-item recovery is read here.)" },
+  { num:3,  names:["Sahaja"],           gloss:"Siblings, courage, short journeys, communication, hands, the querent's drive." },
+  { num:4,  names:["Sukha","Bandhu"],   gloss:"Mother, home, property, vehicles, mental peace, deep emotional comfort." },
+  { num:5,  names:["Putra","Vidya"],    gloss:"Children, intelligence, education, mantra, devotion, speculative gain, romance." },
+  { num:6,  names:["Ari","Shatru"],     gloss:"Enemies, disputes, litigation, debts, disease, service, daily routine work." },
+  { num:7,  names:["Yuvati","Kalatra"], gloss:"Spouse, marriage, partnerships, business, opponents in court, the public-facing other." },
+  { num:8,  names:["Ayur","Randhra"],   gloss:"Longevity, sudden events, transformations, occult, hidden matters, inheritance." },
+  { num:9,  names:["Dharma","Bhagya"],  gloss:"Father, guru, fortune, dharma, long journeys, pilgrimage, higher knowledge." },
+  { num:10, names:["Karma"],            gloss:"Career, status, authority, profession, action in the world, public recognition." },
+  { num:11, names:["Labha"],            gloss:"Gains, income, elder siblings, friends, fulfilled wishes, networks." },
+  { num:12, names:["Vyaya","Moksha"],   gloss:"Loss, expenditure, foreign places, hospitalisation, isolation, liberation, the unseen." }
+];
+const PRASHNA_HOUSE_KARAKA = {
+  1:["Su"], 2:["Ju"], 3:["Ma"], 4:["Mo"], 5:["Ju"], 6:["Ma","Sa"],
+  7:["Ve"], 8:["Sa"], 9:["Ju","Su"], 10:["Su","Me","Ju","Sa"], 11:["Ju"], 12:["Sa","Ke"]
+};
+
+// Tajika deeptamsha (orbs) in degrees
+const DEEPTAMSHA = { Su:15, Mo:12, Ma:8, Me:7, Ju:9, Ve:7, Sa:9 };
+const PRASHNA_BENEFICS = ["Ju","Ve","Me"];
+const PRASHNA_MALEFICS = ["Sa","Ma","Su","Ra","Ke"];
+
+// Approximate daily speed of each planet (deg/day) — used as fallback for
+// Ithasala timing when finite-difference fails.
+const APPROX_SPEED = { Su:0.986, Mo:13.176, Ma:0.524, Me:1.383, Ju:0.083, Ve:1.602, Sa:0.034, Ra:-0.053, Ke:-0.053 };
+
+function pSpeed(planet, jd) {
+  if (planet === "As") return 360;
+  if (planet === "Su") return 0.986;
+  if (planet === "Mo") return 13.176;
+  if (planet === "Ra" || planet === "Ke") return -0.053;
+  const pmap = { Ma:"mars", Me:"mercury", Ju:"jupiter", Ve:"venus", Sa:"saturn" };
+  const key = pmap[planet]; if (!key) return APPROX_SPEED[planet] || 1;
+  const l1 = planetGeoLongitude(key, jd - 0.5);
+  const l2 = planetGeoLongitude(key, jd + 0.5);
+  let d = l2 - l1; if (d > 180) d -= 360; if (d < -180) d += 360;
+  return d;  // deg/day; negative = retrograde
+}
+
+// === Tajika: sign-offset aspect map (forward count) ===
+// 0=conj, 3=sextile (3rd), 4=square (4th), 5=trine (5th), 7=opposition,
+// 9=trine (9th), 10=square (10th), 11=sextile (11th). Hostile: 0,4,7,10. Friendly: 3,5,9,11.
+function tajikaAspect(sign1, sign2) {
+  const d = ((sign2 - sign1) + 12) % 12;
+  if (d === 0)  return { offset:d, name:"Conjunction",       type:"hostile",  strength:"very strong" };
+  if (d === 3)  return { offset:d, name:"3rd-house sextile", type:"friendly", strength:"moderate" };
+  if (d === 4)  return { offset:d, name:"4th-house square",  type:"hostile",  strength:"strong" };
+  if (d === 5)  return { offset:d, name:"5th-house trine",   type:"friendly", strength:"strong" };
+  if (d === 7)  return { offset:d, name:"Opposition (7th)",  type:"hostile",  strength:"very strong" };
+  if (d === 9)  return { offset:d, name:"9th-house trine",   type:"friendly", strength:"strong" };
+  if (d === 10) return { offset:d, name:"10th-house square", type:"hostile",  strength:"strong" };
+  if (d === 11) return { offset:d, name:"11th-house sextile",type:"friendly", strength:"moderate" };
+  return null;
+}
+
+// === Ithasala (applying/separating connection) between two grahas ===
+function ithasala(p1, p2, positions, jd) {
+  if (p1 === p2 || p1 === "Ra" || p1 === "Ke" || p2 === "Ra" || p2 === "Ke")
+    return { hasAspect:false, reason:"Tajika excludes nodes." };
+  const l1 = positions[p1].sidereal, l2 = positions[p2].sidereal;
+  const s1 = Math.floor(l1/30),     s2 = Math.floor(l2/30);
+  const aspect = tajikaAspect(s1, s2);
+  if (!aspect) return { hasAspect:false, reason:"No Tajika aspect between current signs." };
+  const speed1 = pSpeed(p1, jd), speed2 = pSpeed(p2, jd);
+  const fasterIsFirst = Math.abs(speed1) > Math.abs(speed2);
+  const fasterP = fasterIsFirst ? p1 : p2;
+  const slowerP = fasterIsFirst ? p2 : p1;
+  const fastDeg = (fasterIsFirst ? l1 : l2) % 30;
+  const slowDeg = (fasterIsFirst ? l2 : l1) % 30;
+  // Within the same sign-offset pattern, the faster's degree-in-sign should be LESS than slower's
+  // for the aspect to be applying (faster planet hasn't reached the same degree yet).
+  const degGap = slowDeg - fastDeg;
+  const speedFast = fasterIsFirst ? speed1 : speed2;
+  const speedSlow = fasterIsFirst ? speed2 : speed1;
+  const relSpeed = speedFast - speedSlow;
+  const applying = (degGap > 0 && relSpeed > 0) || (degGap < 0 && relSpeed < 0);
+  const absGap = Math.abs(degGap);
+  const allowedOrb = ((DEEPTAMSHA[p1] || 6) + (DEEPTAMSHA[p2] || 6)) / 2;
+  const inOrb = absGap <= allowedOrb;
+  // Days to perfection (only meaningful if applying)
+  const daysToPerfection = applying && relSpeed !== 0 ? absGap / Math.abs(relSpeed) : null;
+  // Manau: significator changes sign before aspect perfects
+  let manau = false;
+  if (applying && daysToPerfection !== null) {
+    const timeFastToBoundary = (30 - fastDeg) / Math.max(0.001, Math.abs(speedFast));
+    const timeSlowToBoundary = (30 - slowDeg) / Math.max(0.001, Math.abs(speedSlow));
+    if (timeFastToBoundary < daysToPerfection || timeSlowToBoundary < daysToPerfection) manau = true;
+  }
+  let classification;
+  if (manau) classification = "Manau — connection breaks (significator changes sign before perfection)";
+  else if (applying && absGap < 1) classification = "Poorna — near-exact, fully formed";
+  else if (applying && inOrb)      classification = "Vartamana — Ithasala (applying, within orb)";
+  else if (applying && !inOrb)     classification = "Bhavishya — will form later, currently out of orb";
+  else                             classification = "Ishrafa — separating (already past)";
+  return {
+    hasAspect:true, aspect, applying, inOrb, manau,
+    classification,
+    fasterP, slowerP,
+    speed1: speed1.toFixed(3), speed2: speed2.toFixed(3),
+    relSpeed: relSpeed.toFixed(3),
+    degGap: degGap.toFixed(2),
+    allowedOrb: allowedOrb.toFixed(1),
+    daysToPerfection: daysToPerfection !== null ? daysToPerfection.toFixed(1) : null
+  };
+}
+
+// === Sub-yogas: Kamboola, Nakta, Yamaya ===
+function subYogas(p1, p2, positions, jd) {
+  const out = [];
+  // Kamboola — Moon supports the Ithasala by aspecting both planets via Tajika and applying to one of them
+  if (p1 !== "Mo" && p2 !== "Mo") {
+    const moonAsp1 = tajikaAspect(Math.floor(positions.Mo.sidereal/30), Math.floor(positions[p1].sidereal/30));
+    const moonAsp2 = tajikaAspect(Math.floor(positions.Mo.sidereal/30), Math.floor(positions[p2].sidereal/30));
+    if (moonAsp1 && moonAsp2) {
+      const ith1 = ithasala("Mo", p1, positions, jd);
+      const ith2 = ithasala("Mo", p2, positions, jd);
+      if ((ith1.applying && ith1.inOrb) || (ith2.applying && ith2.inOrb))
+        out.push({ name:"Kamboola", note:"Moon supports the connection — Moon aspects both significators and is applying to at least one. Auspicious reinforcement." });
+    }
+  }
+  // Nakta / Yamaya — a third planet relays light between two grahas that lack a direct Tajika aspect
+  const a12 = tajikaAspect(Math.floor(positions[p1].sidereal/30), Math.floor(positions[p2].sidereal/30));
+  if (!a12) {
+    const candidates = ["Su","Mo","Ma","Me","Ju","Ve","Sa"].filter(p => p !== p1 && p !== p2);
+    for (const p3 of candidates) {
+      const a13 = tajikaAspect(Math.floor(positions[p1].sidereal/30), Math.floor(positions[p3].sidereal/30));
+      const a23 = tajikaAspect(Math.floor(positions[p2].sidereal/30), Math.floor(positions[p3].sidereal/30));
+      if (a13 && a23) {
+        const fast13 = Math.abs(pSpeed(p1,jd)) > Math.abs(pSpeed(p3,jd)) ? p1 : p3;
+        // Nakta: third planet is faster than both → translates light
+        const sp1 = Math.abs(pSpeed(p1,jd)), sp2 = Math.abs(pSpeed(p2,jd)), sp3 = Math.abs(pSpeed(p3,jd));
+        if (sp3 > sp1 && sp3 > sp2)      out.push({ name:`Nakta via ${PLANET_FULL[p3]}`, note:`Faster ${PLANET_FULL[p3]} translates light between ${PLANET_FULL[p1]} and ${PLANET_FULL[p2]} — connection is mediated, not direct.` });
+        else if (sp3 < sp1 && sp3 < sp2) out.push({ name:`Yamaya via ${PLANET_FULL[p3]}`, note:`Slower ${PLANET_FULL[p3]} collects light from both significators — a gathering of effects, indirect mediation.` });
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+// === Planet state (combustion, dignity, etc.) ===
+function combustionOrb(p) {
+  return { Mo:12, Me:14, Ma:17, Ju:11, Ve:10, Sa:15 }[p] || null;
+}
+function planetState(p, positions) {
+  if (p === "As" || p === "Su") return { combust: false };
+  const orb = combustionOrb(p); if (!orb) return { combust: false };
+  let diff = Math.abs(positions[p].sidereal - positions.Su.sidereal);
+  if (diff > 180) diff = 360 - diff;
+  return { combust: diff < orb, sunDistance: diff.toFixed(1), combustOrb: orb };
+}
+function planetDignity(p, positions) {
+  const sign = Math.floor(positions[p].sidereal / 30);
+  if (EXALT[p] && EXALT[p][0] === sign) return "Exalted";
+  if (DEBIL[p] && DEBIL[p][0] === sign) return "Debilitated";
+  if (OWN_SIGNS[p] && OWN_SIGNS[p].includes(sign)) return "Own sign";
+  const lord = SIGN_LORDS[sign];
+  if (FRIENDS[p] && FRIENDS[p].includes(lord)) return "Friendly sign";
+  if (ENEMIES[p] && ENEMIES[p].includes(lord)) return "Enemy sign";
+  return "Neutral sign";
+}
+
+// === PAC: Position · Aspect · Conjunction (Parashari analysis of any planet) ===
+// Special drishti: Mars 4 & 8; Jupiter 5 & 9; Saturn 3 & 10; Rahu/Ketu 5, 7, 9 (per common modern usage).
+// All planets aspect the 7th house from themselves.
+const PARASHARI_SPECIAL_DRISHTI = { Ma:[4,8], Ju:[5,9], Sa:[3,10], Ra:[5,7,9], Ke:[5,7,9] };
+
+function aspectsOnPlanet(targetP, positions) {
+  const targetSign = Math.floor(positions[targetP].sidereal / 30);
+  const out = [];
+  for (const p of ["Su","Mo","Ma","Me","Ju","Ve","Sa","Ra","Ke"]) {
+    if (p === targetP) continue;
+    const pSign = Math.floor(positions[p].sidereal / 30);
+    const housesAhead = ((targetSign - pSign) + 12) % 12;  // 0..11
+    const drishtiHouse = housesAhead + 1;                  // 1..12
+    if (drishtiHouse === 7) { out.push({ planet: p, type: "7th drishti" }); continue; }
+    const special = PARASHARI_SPECIAL_DRISHTI[p];
+    if (special && special.includes(drishtiHouse)) out.push({ planet: p, type: `${drishtiHouse}th drishti` });
+  }
+  return out;
+}
+function conjunctionsOf(targetP, positions) {
+  const targetSign = Math.floor(positions[targetP].sidereal / 30);
+  const out = [];
+  for (const p of ["Su","Mo","Ma","Me","Ju","Ve","Sa","Ra","Ke"]) {
+    if (p === targetP) continue;
+    if (Math.floor(positions[p].sidereal/30) === targetSign) out.push(p);
+  }
+  return out;
+}
+// Renders a compact PAC block for one planet (planet's name shown by caller)
+function renderPAC(p, positions, ascSign) {
+  const sgn = Math.floor(positions[p].sidereal / 30);
+  const deg = (positions[p].sidereal - sgn*30).toFixed(2);
+  const house = ((sgn - ascSign + 12) % 12) + 1;
+  const dignity = (p === "Ra" || p === "Ke") ? "—" : planetDignity(p, positions);
+  const state = planetState(p, positions);
+  const flags = [];
+  if (positions[p].retro && p !== "Su" && p !== "Mo") flags.push(`<span class="chip warn">Retrograde</span>`);
+  if (state.combust) flags.push(`<span class="chip bad">Combust (${state.sunDistance}° from Sun)</span>`);
+  if (EXALT[p] && EXALT[p][0]===sgn) flags.push(`<span class="chip good">Exalted</span>`);
+  if (DEBIL[p] && DEBIL[p][0]===sgn) flags.push(`<span class="chip bad">Debilitated</span>`);
+  if (OWN_SIGNS[p] && OWN_SIGNS[p].includes(sgn)) flags.push(`<span class="chip good">Own sign</span>`);
+  const aspects = aspectsOnPlanet(p, positions);
+  const conj = conjunctionsOf(p, positions);
+  const afflictions = afflictionsForPlanet(p, positions, ascSign);
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-top:6px;">
+      <div class="info-cell"><div class="lbl">Position</div>
+        <div class="val">${SIGNS[sgn]} · ${deg}° · House ${house}</div>
+        <div class="small" style="margin-top:3px;color:var(--text-2);">${dignity}</div>
+        ${flags.length?`<div style="margin-top:6px;">${flags.join(" ")}</div>`:""}
+      </div>
+      <div class="info-cell"><div class="lbl">Aspects received <span class="small" style="color:var(--text-3);font-weight:400;">(Parashari drishti)</span></div>
+        <div class="val">${aspects.length ? aspects.map(a => `<span class="chip" style="margin:1px;">${PLANET_FULL[a.planet]} <span class="small" style="color:var(--text-3);">${a.type}</span></span>`).join(" ") : "<span class='small' style='color:var(--text-3);'>None</span>"}</div>
+      </div>
+      <div class="info-cell"><div class="lbl">Conjunctions <span class="small" style="color:var(--text-3);font-weight:400;">(same sign)</span></div>
+        <div class="val">${conj.length ? conj.map(p => `<span class="chip" style="margin:1px;">${PLANET_FULL[p]}</span>`).join(" ") : "<span class='small' style='color:var(--text-3);'>None — alone in sign</span>"}</div>
+      </div>
+      ${afflictions.length ? `<div class="info-cell" style="border-left:3px solid var(--warn);"><div class="lbl">Affliction flags</div><div class="val small">${afflictions.join(" · ")}</div></div>` : ""}
+    </div>
+  `;
+}
+
+// === Lagna ripeness ===
+function lagnaRipeness(ascLongitude) {
+  const within = ascLongitude % 30;
+  if (within < 3)  return { phase: "Early (< 3°)",  note: "Matter is just beginning — premature; outcome not yet ripened." };
+  if (within > 27) return { phase: "Late (> 27°)", note: "Sign-changing — matter is at the end; outcome may already be decided, slipping past." };
+  return { phase: `Middle (${within.toFixed(1)}°)`, note: "Matter has unfolded enough to be readable; no over-early or over-late signal." };
+}
+function signModality(sign) {
+  // 0,3,6,9 = movable (chara) — fast outcomes
+  // 1,4,7,10 = fixed (sthira) — slow, stable outcomes
+  // 2,5,8,11 = dual (dwiswabhava) — mixed/oscillating
+  const mod = sign % 3;
+  if (mod === 0) return { kind: "Movable (Chara)", timing: "Fast — outcomes resolve quickly" };
+  if (mod === 1) return { kind: "Fixed (Sthira)",  timing: "Slow — outcomes resolve steadily, with delay" };
+  return                  { kind: "Dual (Dwiswabhava)", timing: "Mixed — outcomes oscillate, multiple turns possible" };
+}
+
+// === Moon analysis ===
+function moonAnalysis(positions) {
+  const moonSign = Math.floor(positions.Mo.sidereal / 30);
+  const nak = nakshatraOf(positions.Mo.sidereal);
+  // Paksha & tithi
+  const diff = mod360(positions.Mo.sidereal - positions.Su.sidereal);
+  const tithiNum = Math.floor(diff / 12);
+  const paksha = tithiNum < 15 ? "Shukla (waxing)" : "Krishna (waning)";
+  // Gandanta — last 3°20' of water sign or first 3°20' of fire sign
+  const within = positions.Mo.sidereal % 30;
+  const elemMod = moonSign % 4;
+  const gandanta = (elemMod === 3 && within > 26.667) || (elemMod === 0 && within < 3.333);
+  // Combustion
+  const combust = planetState("Mo", positions).combust;
+  // Malefic association (in same sign as malefic, or adjacent signs aspected)
+  const malefAssoc = [];
+  for (const m of ["Ma","Sa","Ra","Ke"]) {
+    if (Math.floor(positions[m].sidereal/30) === moonSign) malefAssoc.push(PLANET_FULL[m]);
+  }
+  return {
+    sign: SIGNS[moonSign], nak, paksha, tithiNum,
+    gandanta, combust, malefAssoc,
+    tithiName: ["Pratipada","Dwitiya","Tritiya","Chaturthi","Panchami","Shashthi","Saptami","Ashtami","Navami","Dashami","Ekadashi","Dwadashi","Trayodashi","Chaturdashi","Purnima","Pratipada","Dwitiya","Tritiya","Chaturthi","Panchami","Shashthi","Saptami","Ashtami","Navami","Dashami","Ekadashi","Dwadashi","Trayodashi","Chaturdashi","Amavasya"][tithiNum]
+  };
+}
+
+// === Affliction flags ===
+function afflictionsForPlanet(p, positions, ascSign) {
+  const out = [];
+  const sign = Math.floor(positions[p].sidereal / 30);
+  const house = ((sign - ascSign + 12) % 12) + 1;
+  if ([6,8,12].includes(house)) out.push(`In trik house ${house} — affliction or weakness`);
+  if (planetState(p, positions).combust) out.push("Combust by Sun (Asta)");
+  if (positions[p].retro && p !== "Su" && p !== "Mo") out.push("Retrograde");
+  // Papakartari — hemmed by malefics on both sides
+  const prevSign = (sign + 11) % 12;
+  const nextSign = (sign + 1) % 12;
+  const malefInPrev = ["Ma","Sa","Ra","Ke","Su"].some(m => Math.floor(positions[m].sidereal/30) === prevSign);
+  const malefInNext = ["Ma","Sa","Ra","Ke","Su"].some(m => Math.floor(positions[m].sidereal/30) === nextSign);
+  if (malefInPrev && malefInNext && p !== "Su" && p !== "Ma" && p !== "Sa") out.push("Papakartari (hemmed by malefics)");
+  return out;
+}
+
+// === Hora lord (planetary hour) ===
+const PLANETARY_HORA_SEQUENCE = ["Su","Ve","Me","Mo","Sa","Ju","Ma"]; // Chaldean order
+function horaLord(weekday, hourFromSunrise) {
+  const WEEKDAY_LORDS = ["Su","Mo","Ma","Me","Ju","Ve","Sa"];
+  const startIdx = PLANETARY_HORA_SEQUENCE.indexOf(WEEKDAY_LORDS[weekday]);
+  const idx = (startIdx + Math.floor(hourFromSunrise) + 7000) % 7;
+  return PLANETARY_HORA_SEQUENCE[idx];
+}
+
+// ============================================================
+// PRASHNA STATE — entire UI is driven from this
+// ============================================================
+let PRASHNA_STATE = null;
+// Shape: { question, jd, year,month,day,hour, lat, lon, tz, positions,
+//          ascSign, selectedHouses:Set<int>, querentOverride, matterOverride, notes }
+
+function renderPrashnaPane() {
+  // If an analysis already exists in this session, jump to the dossier view
+  if (PRASHNA_STATE && PRASHNA_STATE.positions) {
+    document.getElementById("pane-prashna").innerHTML = "";
+    renderPrashnaForm();
+    renderPrashnaDossier();
+    return;
+  }
+  document.getElementById("pane-prashna").innerHTML = "";
+  renderPrashnaForm();
+}
+
+function renderPrashnaForm() {
+  const defaultLat = (PRASHNA_STATE && PRASHNA_STATE.lat) || (CURRENT ? CURRENT.input.lat : 28.6139);
+  const defaultLon = (PRASHNA_STATE && PRASHNA_STATE.lon) || (CURRENT ? CURRENT.input.lon : 77.2090);
+  const defaultTz  = (PRASHNA_STATE && PRASHNA_STATE.tz)  || (CURRENT ? CURRENT.input.tz  : 5.5);
+  const now = new Date();
+  const ymdStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const hmsStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const savedCount = (loadJSON("kundliPrashnas") || []).length;
+  const wrap = document.createElement("div");
+  wrap.innerHTML = `
+    <div class="hero">
+      <div class="eyebrow">Prashna Kundli · Horary Decision Support</div>
+      <div class="h-date display" style="font-size:26px;">Cast a chart for this moment</div>
+      <p class="small" style="color:var(--text-2);margin-top:8px;line-height:1.5;">Cast the chart, then <b>click houses on the chart</b> to select them. For every selected house the dossier shows its lord's Position, Aspects on it, and Conjunctions (PAC), plus Lagna · Lagnesh, Hora · Horesh, and Moon state. You make the reading; the tool only provides the data.</p>
+    </div>
+    <div class="card">
+      <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label class="pr-lbl">Date</label><input id="pqDate" type="date" value="${ymdStr}"/></div>
+          <div><label class="pr-lbl">Time (to the second)</label><input id="pqTime" type="time" step="1" value="${hmsStr}"/></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div><label class="pr-lbl">Latitude</label><input id="pqLat" type="number" step="0.0001" value="${defaultLat}"/></div>
+          <div><label class="pr-lbl">Longitude</label><input id="pqLon" type="number" step="0.0001" value="${defaultLon}"/></div>
+          <div><label class="pr-lbl">Timezone (hrs, +E)</label><input id="pqTz" type="number" step="0.25" value="${defaultTz}"/></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;">
+          <div style="display:flex;gap:6px;">
+            <button class="secondary" onclick="pqUseNow()" style="padding:8px 14px;">Use Now</button>
+            ${savedCount>0?`<button class="secondary" onclick="prashnaToggleHistory()" style="padding:8px 14px;">History (${savedCount})</button>`:''}
+          </div>
+          <button onclick="castPrashna()" style="padding:10px 18px;">Cast Prashna Chart →</button>
+        </div>
+        <div id="prashnaHistory" style="display:none;"></div>
+      </div>
+    </div>
+    <div id="prashnaDossier"></div>
+  `;
+  document.getElementById("pane-prashna").appendChild(wrap);
+}
+
+function pqUseNow() {
+  const now = new Date();
+  document.getElementById("pqDate").value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  document.getElementById("pqTime").value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+}
+
+function castPrashna() {
+  const dob = document.getElementById("pqDate").value;
+  const tob = document.getElementById("pqTime").value;
+  const lat = parseFloat(document.getElementById("pqLat").value);
+  const lon = parseFloat(document.getElementById("pqLon").value);
+  const tz  = parseFloat(document.getElementById("pqTz").value);
+  if (!dob || !tob) { alert("Please set the date and time of the question."); return; }
+  const [y,m,d] = dob.split("-").map(Number);
+  const [hh,mm,ss] = tob.split(":").map(Number);
+  const localHour = hh + (mm||0)/60 + ((ss||0))/3600;
+  const utHour = localHour - tz;
+  const jd = julianDay(y, m, d, utHour);
+  const { positions } = computePositions(jd, lat, lon);
+  const ascSign = Math.floor(positions.As.sidereal / 30);
+  PRASHNA_STATE = {
+    jd, year:y, month:m, day:d, hour: localHour, lat, lon, tz,
+    positions, ascSign,
+    selectedHouses: new Set([1]),  // Lagna selected by default
+    querentOverride: null, matterOverride: null,
+    notes: PRASHNA_STATE ? PRASHNA_STATE.notes : ""
+  };
+  renderPrashnaDossier();
+}
+
+function prashnaToggleHistory() {
+  const el = document.getElementById("prashnaHistory");
+  if (!el) return;
+  if (el.style.display === "none") { el.style.display = "block"; renderPrashnaHistory(); }
+  else el.style.display = "none";
+}
+function renderPrashnaHistory() {
+  const arr = loadJSON("kundliPrashnas") || [];
+  if (arr.length === 0) { document.getElementById("prashnaHistory").innerHTML = `<p class="small" style="color:var(--text-3);">No saved charts.</p>`; return; }
+  const rows = arr.slice().reverse().map((p, ri) => {
+    const i = arr.length - 1 - ri;
+    return `<tr>
+      <td><b>${escapeHtml(p.question||'(no question)').slice(0,50)}</b><div class="small" style="color:var(--text-3);">${new Date(p.savedAt).toLocaleString()}</div></td>
+      <td>${p.day}/${p.month}/${p.year}<br><span class="small">${String(Math.floor(p.hour)).padStart(2,'0')}:${String(Math.floor((p.hour%1)*60)).padStart(2,'0')}</span></td>
+      <td style="white-space:nowrap;">
+        <button style="padding:4px 10px;" onclick="loadPrashna(${i})">Load</button>
+        <button class="danger" style="padding:4px 10px;" onclick="deletePrashna(${i})">×</button>
+      </td>
+    </tr>`;
+  }).join("");
+  document.getElementById("prashnaHistory").innerHTML = `<div class="scroll-x" style="margin-top:10px;"><table>
+    <thead><tr><th>Question / Saved</th><th>Cast</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+function loadPrashna(idx) {
+  const arr = loadJSON("kundliPrashnas") || [];
+  const p = arr[idx]; if (!p) return;
+  const { positions } = computePositions(p.jd, p.lat, p.lon);
+  PRASHNA_STATE = {
+    question: p.question, jd: p.jd, year:p.year, month:p.month, day:p.day, hour:p.hour, lat:p.lat, lon:p.lon, tz:p.tz,
+    positions, ascSign: Math.floor(positions.As.sidereal / 30),
+    selectedHouses: new Set(p.selectedHouses || [1]),
+    querentOverride: p.querentOverride || null,
+    matterOverride: p.matterOverride || null,
+    notes: p.notes || ""
+  };
+  renderPrashnaPane();
+}
+function deletePrashna(idx) {
+  const arr = loadJSON("kundliPrashnas") || [];
+  const name = arr[idx] ? arr[idx].question || "this chart" : "this chart";
+  appConfirm(`Delete saved Prashna "${name.slice(0,40)}"?`, () => {
+    arr.splice(idx, 1);
+    saveJSON("kundliPrashnas", arr);
+    renderPrashnaHistory();
+    renderPrashnaPane();
+  }, { yesText: "Delete", dangerous: true });
+}
+function savePrashnaToHistory() {
+  if (!PRASHNA_STATE) return;
+  // Persist the astrologer's notes from the dossier textarea
+  const noteEl = document.getElementById("prNotes"); if (noteEl) PRASHNA_STATE.notes = noteEl.value;
+  const arr = loadJSON("kundliPrashnas") || [];
+  arr.push({
+    savedAt: Date.now(),
+    question: PRASHNA_STATE.question,
+    jd: PRASHNA_STATE.jd, year: PRASHNA_STATE.year, month: PRASHNA_STATE.month, day: PRASHNA_STATE.day,
+    hour: PRASHNA_STATE.hour, lat: PRASHNA_STATE.lat, lon: PRASHNA_STATE.lon, tz: PRASHNA_STATE.tz,
+    selectedHouses: Array.from(PRASHNA_STATE.selectedHouses),
+    querentOverride: PRASHNA_STATE.querentOverride,
+    matterOverride: PRASHNA_STATE.matterOverride,
+    notes: PRASHNA_STATE.notes || ""
+  });
+  saveJSON("kundliPrashnas", arr);
+  alert(`Saved (#${arr.length}).`);
+}
+
+// === Clickable North-Indian Prashna chart ===
+function drawPrashnaChart(positions, selectedHouses) {
+  const ascSign = Math.floor(positions.As.sidereal / 30);
+  const signsInHouses = [];
+  for (let i = 0; i < 12; i++) signsInHouses.push((ascSign + i) % 12);
+  const planetsInHouses = Array.from({length:12}, ()=>[]);
+  const order = ["As","Su","Mo","Ma","Me","Ju","Ve","Sa","Ra","Ke"];
+  for (const p of order) {
+    const s = Math.floor(positions[p].sidereal / 30);
+    const houseIdx = (s - ascSign + 12) % 12;
+    planetsInHouses[houseIdx].push({ p, retro: positions[p].retro, deg: positions[p].sidereal - s*30 });
+  }
+  // Click-target polygons for the 12 houses of the North-Indian diamond
+  // Coordinate refs assume a 320x320 SVG, same as drawNorthIndianChart.
+  const polyForHouse = [
+    null,
+    "120,10 200,10 160,90",          // H1 top diamond
+    "10,10 120,10 80,90 80,90",      // H2 top-left small
+    "10,10 80,90 10,160",            // H3 left top
+    "10,160 80,90 160,160 80,230",   // H4 left center
+    "10,160 80,230 10,310",          // H5 left bottom
+    "10,310 80,230 200,310",         // H6 bottom-left small (approx)
+    "120,310 200,310 160,230",       // H7 bottom diamond
+    "200,310 310,310 240,230",       // H8 bottom-right small
+    "240,230 310,160 310,310",       // H9 right bottom
+    "240,230 310,160 240,90 160,160",// H10 right center
+    "310,10 310,160 240,90",         // H11 right top
+    "200,10 310,10 240,90"           // H12 top-right small
+  ];
+  // House center points (for labels)
+  const housePoints = [null,
+    {x:160,y:60},{x:80,y:40},{x:40,y:80},{x:80,y:160},{x:40,y:240},
+    {x:80,y:280},{x:160,y:260},{x:240,y:280},{x:280,y:240},{x:240,y:160},
+    {x:280,y:80},{x:240,y:40}
+  ];
+  const W = 320, H = 320;
+  let svg = `<svg class="kundli-svg pr-chart" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
+  // Clickable invisible polygons FIRST (under labels)
+  for (let h = 1; h <= 12; h++) {
+    const selected = selectedHouses.has(h);
+    svg += `<polygon points="${polyForHouse[h]}" fill="${selected?'rgba(255,140,66,0.10)':'transparent'}" stroke="${selected?'var(--accent)':'transparent'}" stroke-width="${selected?1.5:0}" style="cursor:pointer;" onclick="togglePrashnaHouse(${h})"/>`;
+  }
+  // Frame
+  svg += `<rect class="outer" x="10" y="10" width="${W-20}" height="${H-20}"/>`;
+  svg += `<line x1="10" y1="10" x2="${W-10}" y2="${H-10}"/>`;
+  svg += `<line x1="${W-10}" y1="10" x2="10" y2="${H-10}"/>`;
+  svg += `<line x1="${W/2}" y1="10" x2="${W-10}" y2="${H/2}"/>`;
+  svg += `<line x1="${W-10}" y1="${H/2}" x2="${W/2}" y2="${H-10}"/>`;
+  svg += `<line x1="${W/2}" y1="${H-10}" x2="10" y2="${H/2}"/>`;
+  svg += `<line x1="10" y1="${H/2}" x2="${W/2}" y2="10"/>`;
+  // Labels
+  for (let h = 1; h <= 12; h++) {
+    const pt = housePoints[h];
+    const sign = signsInHouses[h-1];
+    const planets = planetsInHouses[h-1];
+    svg += `<text class="sign-num" x="${pt.x}" y="${pt.y - 8}" text-anchor="middle" style="font-size:8px;fill:var(--text-3);pointer-events:none;">H${h}</text>`;
+    svg += `<text class="sign-num" x="${pt.x}" y="${pt.y + 4}" text-anchor="middle" style="pointer-events:none;">${sign+1}</text>`;
+    planets.forEach((p, i) => {
+      const py = pt.y + 16 + i * 11;
+      const cls = p.retro ? "ret" : "";
+      svg += `<text class="planet ${cls}" x="${pt.x}" y="${py}" text-anchor="middle" style="pointer-events:none;">${p.p}</text>`;
+    });
+  }
+  svg += `</svg>`;
+  return svg;
+}
+
+function togglePrashnaHouse(h) {
+  if (!PRASHNA_STATE) return;
+  const s = PRASHNA_STATE.selectedHouses;
+  if (s.has(h)) s.delete(h); else s.add(h);
+  if (s.size === 0) s.add(1);  // never zero — always keep Lagna selected
+  renderPrashnaDossier();
+}
+
+function setPrashnaSig(role, planet) {
+  if (!PRASHNA_STATE) return;
+  if (role === "querent") PRASHNA_STATE.querentOverride = planet || null;
+  else PRASHNA_STATE.matterOverride = planet || null;
+  renderPrashnaDossier();
+}
+
+// === Main dossier render ===
+function renderPrashnaDossier() {
+  const s = PRASHNA_STATE; if (!s || !s.positions) return;
+  const positions = s.positions;
+  const ascSign = s.ascSign;
+  const lagnaLord = SIGN_LORDS[ascSign];
+  const querentSig = s.querentOverride || lagnaLord;
+
+  // Compute lords of selected houses (= matter significators)
+  const matterSigs = [];
+  for (const h of s.selectedHouses) {
+    if (h === 1) continue;  // skip Lagna for matter (already querent)
+    const sgn = (ascSign + h - 1) % 12;
+    const ld = SIGN_LORDS[sgn];
+    if (!matterSigs.includes(ld) && ld !== querentSig) matterSigs.push(ld);
+  }
+  const primaryMatterSig = s.matterOverride || matterSigs[0] || lagnaLord;
+
+  // Hora lord (from sunrise of cast date)
+  let hLord = "—", weekdayName = "—";
+  try {
+    const pan = computePanchang(s.year, s.month, s.day, s.lat, s.lon, s.tz);
+    const hoursFromSunrise = s.hour >= pan.sun.sunrise ? s.hour - pan.sun.sunrise : (24 - pan.sun.sunrise) + s.hour;
+    hLord = horaLord(pan.weekday, hoursFromSunrise);
+    weekdayName = WEEKDAY_NAMES[pan.weekday];
+  } catch(e) {}
+
+  // Lagna ripeness + modality
+  const ripeness = lagnaRipeness(positions.As.sidereal);
+  const modality = signModality(ascSign);
+  const moon = moonAnalysis(positions);
+
+  // Render
+  const svg = drawPrashnaChart(positions, s.selectedHouses);
+  const hourLabel = `${String(Math.floor(s.hour)).padStart(2,'0')}:${String(Math.floor((s.hour%1)*60)).padStart(2,'0')}`;
+  const ascDeg = (positions.As.sidereal - ascSign*30).toFixed(2);
+
+  let html = `
+    <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div class="eyebrow">Cast moment</div>
+        <div class="display" style="font-size:18px;">${s.day}-${monthName(s.month)}-${s.year}, ${hourLabel} · ${weekdayName}</div>
+        <div class="small" style="color:var(--text-3);">${s.lat.toFixed(3)}, ${s.lon.toFixed(3)} · TZ ${s.tz>=0?'+':''}${s.tz}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="secondary" onclick="savePrashnaToHistory()" style="padding:8px 14px;">💾 Save</button>
+        <button class="secondary" onclick="window.print()" style="padding:8px 14px;">🖨️ Print</button>
+        <button class="secondary" onclick="PRASHNA_STATE=null;renderPrashnaPane();" style="padding:8px 14px;">↺ New</button>
+      </div>
+    </div>
+
+    <div class="chart-wrap" style="align-items:flex-start;">
+      <div class="chart-box">
+        <div class="chart-title">Prashna Chart — Tap houses to select</div>
+        ${svg}
+        <div class="small" style="margin-top:8px;color:var(--text-2);">Selected houses: ${Array.from(s.selectedHouses).sort((a,b)=>a-b).map(h=>`H${h}`).join(", ")}. Lagna: ${SIGNS[ascSign]} ${ascDeg}° · ${ripeness.phase}.</div>
+      </div>
+      <div style="flex:1;min-width:280px;">
+        <div class="section-h">Lagna · Lagnesh</div>
+        <div class="card" style="margin-top:6px;">
+          <div class="card-row">
+            <div class="ic"><svg><use href="#i-sparkles"/></svg></div>
+            <div class="info">
+              <div class="lbl">Lagna (rising sign)</div>
+              <div class="val">${SIGNS[ascSign]} · ${ascDeg}° · ${modality.kind}</div>
+              <div class="small" style="color:var(--text-2);">${ripeness.phase} — ${ripeness.note}</div>
+              <div class="small" style="color:var(--text-3);">${modality.timing}</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+            <div class="eyebrow" style="color:var(--accent);">PAC of Lagnesh — ${PLANET_FULL[lagnaLord]}</div>
+            ${renderPAC(lagnaLord, positions, ascSign)}
+          </div>
+        </div>
+
+        <div class="section-h" style="margin-top:10px;">Hora · Horesh</div>
+        <div class="card" style="margin-top:6px;">
+          <div class="card-row">
+            <div class="ic"><svg><use href="#i-sun"/></svg></div>
+            <div class="info">
+              <div class="lbl">Planetary hour ruler (Horesh)</div>
+              <div class="val">${PLANET_FULL[hLord] || hLord}</div>
+              <div class="small" style="color:var(--text-3);">${weekdayName} · the hora active at the cast moment</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+            <div class="eyebrow" style="color:var(--accent);">PAC of Horesh — ${PLANET_FULL[hLord] || hLord}</div>
+            ${renderPAC(hLord, positions, ascSign)}
+          </div>
+        </div>
+
+        <div class="section-h" style="margin-top:10px;">Moon</div>
+        <div class="card" style="margin-top:6px;">
+          <div class="card-row">
+            <div class="ic good"><svg><use href="#i-moon"/></svg></div>
+            <div class="info">
+              <div class="lbl">Chandra · Nakshatra · Pada</div>
+              <div class="val">${moon.sign} · ${moon.nak.name} P${moon.nak.pada}</div>
+              <div class="small" style="color:var(--text-3);">${moon.paksha} · ${moon.tithiName} · Nak lord ${PLANET_FULL[moon.nak.lord]}</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+            <div class="eyebrow" style="color:var(--accent);">PAC of Moon</div>
+            ${renderPAC("Mo", positions, ascSign)}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${renderHouseDossier(s)}
+
+    <div class="section-h">All planet positions</div>
+    <div class="card scroll-x">
+      <table style="width:100%;font-size:13px;">
+        <thead><tr><th>Planet</th><th>Sign</th><th>Deg</th><th>House</th><th>Nakshatra</th><th>Dignity</th><th>State</th></tr></thead>
+        <tbody>${["Su","Mo","Ma","Me","Ju","Ve","Sa","Ra","Ke"].map(p => {
+          const sg = Math.floor(positions[p].sidereal/30);
+          const hs = ((sg - ascSign + 12) % 12) + 1;
+          const dn = (positions[p].sidereal - sg*30).toFixed(2);
+          const nk = nakshatraOf(positions[p].sidereal);
+          const dig = (p==="Ra"||p==="Ke") ? "—" : planetDignity(p, positions);
+          const flags = [];
+          if (positions[p].retro && p!=="Su" && p!=="Mo") flags.push('<span class="chip warn">R</span>');
+          if (planetState(p, positions).combust) flags.push('<span class="chip bad">Combust</span>');
+          if (EXALT[p] && EXALT[p][0]===sg) flags.push('<span class="chip good">Exalted</span>');
+          if (DEBIL[p] && DEBIL[p][0]===sg) flags.push('<span class="chip bad">Debilitated</span>');
+          return `<tr><td><b>${PLANET_FULL[p]}</b></td><td>${SIGNS[sg]}</td><td class="mono">${dn}</td><td>${hs}</td><td>${nk.name} P${nk.pada}</td><td>${dig}</td><td>${flags.join(" ")||"—"}</td></tr>`;
+        }).join("")}</tbody>
+      </table>
+    </div>
+
+    <div class="section-h">Astrologer's Reading</div>
+    <div class="card">
+      <p class="small" style="color:var(--text-2);margin-bottom:8px;">Your own interpretation of this chart. Saved with the chart for your personal track record.</p>
+      <textarea id="prNotes" rows="4" style="width:100%;resize:vertical;min-height:80px;" placeholder="What you read in the chart, the verdict you gave, and (later) the actual outcome…">${escapeHtml(s.notes||'')}</textarea>
+    </div>
+  `;
+  let dossierEl = document.getElementById("prashnaDossier");
+  if (!dossierEl) {
+    // Form not present (e.g., we re-rendered just the dossier) — recreate
+    renderPrashnaForm();
+    dossierEl = document.getElementById("prashnaDossier");
+  }
+  dossierEl.innerHTML = html;
+}
+
+function renderHouseDossier(s) {
+  const positions = s.positions;
+  const ascSign = s.ascSign;
+  const sel = Array.from(s.selectedHouses).sort((a,b)=>a-b);
+  const cards = sel.map(h => {
+    const hsig = PRASHNA_HOUSE_SIG[h-1];
+    const sgn = (ascSign + h - 1) % 12;
+    const lord = SIGN_LORDS[sgn];
+    const occupants = ["Su","Mo","Ma","Me","Ju","Ve","Sa","Ra","Ke"].filter(p => Math.floor(positions[p].sidereal/30) === sgn);
+    const karakas = (PRASHNA_HOUSE_KARAKA[h] || []).map(p => PLANET_FULL[p]).join(", ");
+    return `<div class="card">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+        <span class="chip accent" style="font-weight:700;">H${h}</span>
+        <h3 style="font-family:'Inter';font-size:15px;margin:0;color:var(--text);">${hsig.names.join(" · ")}</h3>
+        <span class="small" style="color:var(--text-3);">${SIGNS[sgn]} · Lord ${PLANET_FULL[lord]}</span>
+      </div>
+      <p class="small" style="color:var(--text-2);line-height:1.55;">${hsig.gloss}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+        <div class="info-cell"><div class="lbl">Natural karaka</div><div class="val">${karakas||"—"}</div></div>
+        <div class="info-cell"><div class="lbl">Occupants of this house</div><div class="val">${occupants.length?occupants.map(p=>PLANET_FULL[p]).join(", "):"None"}</div></div>
+      </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+        <div class="eyebrow" style="color:var(--accent);">PAC of house lord — ${PLANET_FULL[lord]}</div>
+        ${renderPAC(lord, positions, ascSign)}
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="section-h">Selected Houses — Lord PAC <span class="sub">${sel.length} house${sel.length===1?'':'s'} selected · tap chart to add/remove</span></div>${cards}`;
+}
+
+function renderConnectionAnalysis(s, querentSig, matterSig) {
+  if (querentSig === matterSig) {
+    return `<div class="section-h">Querent ↔ Matter Connection</div>
+      <div class="card">
+        <p style="color:var(--text);">Querent significator and matter significator are the same planet (<b>${PLANET_FULL[querentSig]}</b>). Self-contained — the querent IS the matter. Read this planet's own state, dignity, and house placement directly.</p>
+      </div>`;
+  }
+  const positions = s.positions; const jd = s.jd;
+  const ith = ithasala(querentSig, matterSig, positions, jd);
+  const subs = subYogas(querentSig, matterSig, positions, jd);
+  let body = "";
+  if (!ith.hasAspect) {
+    body = `<div class="card"><p style="color:var(--text);"><b>${PLANET_FULL[querentSig]}</b> and <b>${PLANET_FULL[matterSig]}</b> do not share a Tajika aspect. ${ith.reason||""}</p>
+      ${subs.length?`<p class="small" style="margin-top:8px;color:var(--text-2);">However, indirect mediations exist: ${subs.map(s=>s.name).join(" · ")}.</p>`:""}
+    </div>`;
+  } else {
+    const a = ith.aspect;
+    const verdictClass = ith.classification.startsWith("Vartamana") ? "good" : ith.classification.startsWith("Poorna") ? "good" : ith.classification.startsWith("Manau") ? "warn" : ith.classification.startsWith("Ishrafa") ? "bad" : "warn";
+    body = `<div class="card">
+      <div class="card-row">
+        <div class="ic ${verdictClass}"><svg><use href="#i-${verdictClass==='good'?'check':'ban'}"/></svg></div>
+        <div class="info">
+          <div class="lbl">Tajika aspect · ${a.type}</div>
+          <div class="val">${a.name} · ${a.strength}</div>
+          <div class="small" style="color:var(--text-2);margin-top:2px;">${ith.classification}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:12px;">
+        <div class="info-cell"><div class="lbl">Faster significator</div><div class="val">${PLANET_FULL[ith.fasterP]}</div></div>
+        <div class="info-cell"><div class="lbl">Degree gap</div><div class="val mono">${ith.degGap}°</div></div>
+        <div class="info-cell"><div class="lbl">Allowed orb</div><div class="val mono">${ith.allowedOrb}°</div></div>
+        <div class="info-cell"><div class="lbl">Applying?</div><div class="val">${ith.applying?"Yes":"No (separating)"}</div></div>
+        <div class="info-cell"><div class="lbl">Within orb?</div><div class="val">${ith.inOrb?"Yes":"No"}</div></div>
+        ${ith.daysToPerfection?`<div class="info-cell"><div class="lbl">Days to perfection</div><div class="val mono">${ith.daysToPerfection}</div></div>`:""}
+      </div>
+      ${subs.length?`<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+        <div class="lbl" style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-3);font-weight:600;margin-bottom:6px;">Sub-yogas detected</div>
+        ${subs.map(y => `<div class="card-row"><div class="ic good"><svg><use href="#i-sparkles"/></svg></div><div class="info"><div class="val">${y.name}</div><div class="small" style="color:var(--text-2);">${y.note}</div></div></div>`).join("")}
+      </div>`:""}
+      <p class="small" style="margin-top:14px;color:var(--text-3);font-style:italic;line-height:1.5;">Tajika Neelakanthi · Ithasala classification of an applying aspect within Deeptamsha (orb) sum-halves. The astrologer judges weight in context.</p>
+    </div>`;
+  }
+  return `<div class="section-h">Querent ↔ Matter Connection <span class="sub">${PLANET_FULL[querentSig]} → ${PLANET_FULL[matterSig]}</span></div>${body}`;
+}
+
+function renderMoonAndAfflictions(s) {
+  const positions = s.positions;
+  const ascSign = s.ascSign;
+  const moon = moonAnalysis(positions);
+  const moonFlags = [];
+  if (moon.gandanta) moonFlags.push("Gandanta — at sandhi between water & fire, unstable.");
+  if (moon.combust) moonFlags.push("Combust by Sun — Moon's signal is overpowered.");
+  if (moon.malefAssoc.length > 0) moonFlags.push(`Conjunct with malefic: ${moon.malefAssoc.join(", ")}.`);
+  // Trik occupants
+  const trikHouses = [6, 8, 12];
+  const trikOccupants = [];
+  for (const p of ["Su","Mo","Ma","Me","Ju","Ve","Sa","Ra","Ke"]) {
+    const sgn = Math.floor(positions[p].sidereal / 30);
+    const hs = ((sgn - ascSign + 12) % 12) + 1;
+    if (trikHouses.includes(hs)) trikOccupants.push({ p, house: hs });
+  }
+  return `<div class="section-h">Moon · Affliction Flags</div>
+    <div class="card">
+      <div class="card-row">
+        <div class="ic good"><svg><use href="#i-moon"/></svg></div>
+        <div class="info">
+          <div class="lbl">Moon</div>
+          <div class="val">${moon.sign} · ${moon.nak.name} (Pada ${moon.nak.pada}) · Nak lord ${PLANET_FULL[moon.nak.lord]}</div>
+          <div class="small" style="color:var(--text-2);margin-top:4px;">${moon.paksha} · ${moon.tithiName}</div>
+        </div>
+      </div>
+      ${moonFlags.length ? moonFlags.map(f => `<div class="card-row"><div class="ic bad"><svg><use href="#i-ban"/></svg></div><div class="info"><div class="val" style="font-size:13px;">${f}</div></div></div>`).join("") : `<div class="card-row"><div class="ic good"><svg><use href="#i-check"/></svg></div><div class="info"><div class="val">No special Moon afflictions flagged.</div></div></div>`}
+    </div>
+    ${trikOccupants.length ? `<div class="card" style="margin-top:10px;">
+      <div class="eyebrow">Trik-house occupants (6 · 8 · 12)</div>
+      ${trikOccupants.map(o => `<div class="card-row"><div class="ic warn"><svg><use href="#i-ban"/></svg></div><div class="info"><div class="val">${PLANET_FULL[o.p]} in ${o.house}H</div><div class="small" style="color:var(--text-2);">House of dispute / sudden change / loss — note for the matter in question.</div></div></div>`).join("")}
+    </div>` : ""}`;
 }
 
 // ---------- INIT ----------
