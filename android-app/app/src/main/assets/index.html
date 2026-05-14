@@ -106,6 +106,14 @@
     .bottom-nav { display: flex; }
     .content { padding: 12px 10px; }
   }
+  /* Modal */
+  .modal { position: fixed; inset: 0; z-index: 200; }
+  .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.65); }
+  .modal-card { position: relative; max-width: 620px; margin: 5vh auto 20px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 22px; max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.55); }
+  .modal-card h3 { color: var(--accent); margin-bottom: 8px; }
   /* Sub-tab (Kundli internal navigation) */
   .nav-pane { display: none; }
   .nav-pane.active { display: block; }
@@ -334,7 +342,11 @@
   <main class="content">
     <!-- BIRTH DETAILS FORM — only visible on Kundli + Milan tabs (set by navTo) -->
     <div class="card" id="birthCard" style="display:none;">
-      <h2 style="color: var(--accent); margin-bottom: 14px;" data-lbl="Birth Details">Birth Details</h2>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <h2 style="color: var(--accent);flex:1;margin:0;" data-lbl="Birth Details">Birth Details</h2>
+        <button style="width:auto;padding:6px 12px;" onclick="openSavedModal('self')" title="Saved kundlis">📁 Saved</button>
+        <button style="width:auto;padding:6px 12px;" onclick="openSavedModal('self', true)" title="Save this kundli">💾 Save</button>
+      </div>
       <div class="form-grid">
         <div><label data-lbl="Name">Name</label><input id="name1" type="text" value="Native" /></div>
         <div><label data-lbl="Date of Birth">Date of Birth</label><input id="dob1" type="date" value="1995-06-15" /></div>
@@ -378,6 +390,14 @@
       <section id="pane-settings" class="nav-pane"></section>
     </div>
   </main>
+
+  <!-- SAVED KUNDLI MODAL (opens from 📁 Saved button on Kundli or Milan pages) -->
+  <div id="savedKundliModal" class="modal" style="display:none;">
+    <div class="modal-backdrop" onclick="closeSavedModal()"></div>
+    <div class="modal-card">
+      <div id="savedKundliModalBody"></div>
+    </div>
+  </div>
 
   <!-- BOTTOM NAV (mobile) -->
   <nav class="bottom-nav" id="bottomNav">
@@ -1554,6 +1574,7 @@ function generateChart() {
   SELF_DATA = buildPersonData(inp);
   CURRENT = SELF_DATA;
   ACTIVE_PERSON = "self";
+  saveSelfInput(inp);  // auto-save to localStorage
 
   document.getElementById("results").style.display = "block";
   renderPersonSwitcher();
@@ -1588,6 +1609,15 @@ function switchActivePerson(which) {
   }
   renderPersonSwitcher();
   renderAllTabs();
+}
+
+// Side-by-side comparison & person switcher entry point.
+// Swaps the active person AND navigates to the Kundli pane so the user
+// actually sees the detailed chart. They can return to Milan with the
+// "Milan" tab in the top/bottom nav at any time.
+function openFullKundli(which) {
+  switchActivePerson(which);
+  navTo("kundli");
 }
 
 function renderPersonSwitcher() {
@@ -1994,7 +2024,11 @@ function renderMatchTab() {
   let html = `
     <p class="small">Match <b>${SELF_DATA?SELF_DATA.input.name:'self'}</b>'s chart against a partner using Ashtakoot Milan (8-fold compatibility, 36 points max). The partner's chart is loaded into the same app — use the switcher at the top to view either person's full kundli.</p>
     <div class="card" style="background:var(--panel2);">
-      <h3 style="color:var(--accent);">Partner's Birth Details</h3>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <h3 style="color:var(--accent);flex:1;margin:0;">Partner's Birth Details</h3>
+        <button style="width:auto;padding:6px 12px;" onclick="openSavedModal('partner')" title="Saved kundlis">📁 Saved</button>
+        <button style="width:auto;padding:6px 12px;" onclick="openSavedModal('partner', true)" title="Save partner kundli">💾 Save</button>
+      </div>
       <div class="form-grid">
         <div><label>Partner Name</label><input id="nameG" type="text" value="${def.name}"/></div>
         <div><label>Date of Birth</label><input id="dobG" type="date" value="${def.dob}" /></div>
@@ -2067,7 +2101,7 @@ function renderSideBySide(self, partner) {
           ${chartFor(p, 1, moonChartLayout)}
         </details>
         <div style="margin-top:8px;text-align:center;">
-          <button style="width:auto;padding:6px 14px;" onclick="switchActivePerson('${who}')">Open ${p.input.name}'s Full Kundli</button>
+          <button style="width:auto;padding:6px 14px;" onclick="openFullKundli('${who}')">Open ${p.input.name}'s Full Kundli</button>
         </div>
       </div>
     `;
@@ -2098,6 +2132,7 @@ function runMatch() {
 
   // Build full partner chart (positions, dasha, shadbala) so it can be viewed as a full kundli.
   PARTNER_DATA = buildPersonData(partnerInput);
+  savePartnerInput(partnerInput);  // auto-save partner to localStorage
   const inpG = partnerInput;
   const pG = PARTNER_DATA.positions;
 
@@ -3503,6 +3538,7 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    ${renderSavedProfilesCard()}
     <div class="card">
       <h3 style="color:var(--accent);">About</h3>
       <p class="small" style="line-height:1.6;">Personal Vedic astrology app — Janma Kundli with all divisional charts (D1–D64), Vimshottari Dasha with four levels, Shadbala, Transit, Ashtakoot Milan with full dosha analysis (classical + modern exceptions), Hindu Panchang (Tithi, Nakshatra, Yoga, Karana, Rahu Kaal, Choghadia, Abhijit/Brahma Muhurta), special yogas (Guru Pushya, Ravi Pushya, Sarvartha Siddhi, Amrita Siddhi), festival calendar, and travel-direction guidance (Moon-direction + Disha Shool). Calculations use Lahiri ayanamsa and Brown's lunar theory (top terms) for the Moon.</p>
@@ -3513,10 +3549,250 @@ function renderSettings() {
 function setTheme(t) { document.documentElement.setAttribute("data-theme", t); localStorage.setItem("kundliTheme", t); document.getElementById("themeBtn").textContent = t === "dark" ? "🌙" : "☀️"; renderSettings(); }
 function setLang(l) { LANG = l; localStorage.setItem("kundliLang", LANG); applyLanguage(); renderSettings(); }
 
+// ============================================================
+// SAVED KUNDLIS — localStorage persistence
+// ============================================================
+//   kundliSelf     → last-used Self birth input
+//   kundliPartner  → last-used Partner birth input
+//   kundliProfiles → array of named profiles: { name, input, savedAt }
+function loadJSON(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } }
+function saveJSON(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+function saveSelfInput(inp)    { saveJSON("kundliSelf", inp); }
+function saveSelfInputFromForm(){ const inp = getInput("1"); if (inp) saveSelfInput(inp); }
+function loadSelfInput()       { return loadJSON("kundliSelf"); }
+function savePartnerInput(inp) { saveJSON("kundliPartner", inp); }
+function loadPartnerInput()    { return loadJSON("kundliPartner"); }
+function loadProfiles()        { return loadJSON("kundliProfiles") || []; }
+function saveProfiles(arr)     { saveJSON("kundliProfiles", arr); }
+
+function populateSelfForm(inp) {
+  if (!inp) return;
+  document.getElementById("name1").value = inp.name || "Native";
+  document.getElementById("dob1").value  = `${inp.year}-${String(inp.month).padStart(2,'0')}-${String(inp.day).padStart(2,'0')}`;
+  const h = Math.floor(inp.hour);
+  const m = Math.floor((inp.hour - h) * 60);
+  const s = Math.floor((((inp.hour - h) * 60) - m) * 60);
+  document.getElementById("tob1").value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  document.getElementById("lat1").value = inp.lat;
+  document.getElementById("lon1").value = inp.lon;
+  document.getElementById("tz1").value  = inp.tz;
+}
+
+function saveCurrentAsProfile() {
+  if (!SELF_DATA) { alert("Generate a kundli first, then save it as a profile."); return; }
+  const nameEl = document.getElementById("profileName");
+  const name = (nameEl ? nameEl.value.trim() : "") || SELF_DATA.input.name || `Profile ${loadProfiles().length + 1}`;
+  const arr = loadProfiles();
+  arr.push({ name, input: SELF_DATA.input, savedAt: Date.now() });
+  saveProfiles(arr);
+  if (nameEl) nameEl.value = "";
+  renderSettings();
+}
+
+function loadProfileToForm(idx) {
+  const arr = loadProfiles();
+  const p = arr[idx]; if (!p) return;
+  populateSelfForm(p.input);
+  generateChart();
+  navTo("kundli");
+}
+
+function deleteProfileAndRefresh(idx) {
+  const arr = loadProfiles();
+  if (!confirm(`Delete profile "${arr[idx].name}"?`)) return;
+  arr.splice(idx, 1);
+  saveProfiles(arr);
+  renderSettings();
+}
+
+// Read partner-form values without computing (for save before match)
+function readPartnerFormInput() {
+  const dob = document.getElementById("dobG"); if (!dob || !dob.value) return null;
+  const tob = document.getElementById("tobG"); if (!tob || !tob.value) return null;
+  const [y,m,d] = dob.value.split("-").map(Number);
+  const [hh,mm,ss] = tob.value.split(":").map(Number);
+  const tz = parseFloat(document.getElementById("tzG").value);
+  const lat = parseFloat(document.getElementById("latG").value);
+  const lon = parseFloat(document.getElementById("lonG").value);
+  const localHour = hh + (mm||0)/60 + ((ss||0))/3600;
+  return {
+    name: (document.getElementById("nameG").value || "Partner"),
+    year: y, month: m, day: d, hour: localHour, tz, lat, lon,
+    jd: julianDay(y, m, d, localHour - tz)
+  };
+}
+
+function populatePartnerForm(inp) {
+  if (!inp) return;
+  document.getElementById("nameG").value = inp.name || "Partner";
+  document.getElementById("dobG").value  = `${inp.year}-${String(inp.month).padStart(2,'0')}-${String(inp.day).padStart(2,'0')}`;
+  const h = Math.floor(inp.hour);
+  const m = Math.floor((inp.hour - h) * 60);
+  const s = Math.floor((((inp.hour - h) * 60) - m) * 60);
+  document.getElementById("tobG").value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  document.getElementById("latG").value = inp.lat;
+  document.getElementById("lonG").value = inp.lon;
+  document.getElementById("tzG").value  = inp.tz;
+}
+
+// =============== SAVED KUNDLI MODAL ===============
+// Opens from 📁 Saved or 💾 Save buttons on Kundli (target='self') / Milan (target='partner').
+// Same profile list — LOAD routes data into Self or Partner slot independently.
+let SAVED_TARGET = "self";
+let FOCUS_SAVE = false;  // true when opened via 💾 Save (focus the name input)
+
+// Pulls the current name from the active form, falling back to in-memory data.
+function currentNameFor(target) {
+  if (target === "self") {
+    const el = document.getElementById("name1");
+    if (el && el.value && el.value.trim()) return el.value.trim();
+    if (SELF_DATA) return SELF_DATA.input.name;
+    return "";
+  } else {
+    const el = document.getElementById("nameG");
+    if (el && el.value && el.value.trim()) return el.value.trim();
+    if (PARTNER_DATA) return PARTNER_DATA.input.name;
+    return "";
+  }
+}
+
+function openSavedModal(target, focusSave) {
+  SAVED_TARGET = target;
+  FOCUS_SAVE = !!focusSave;
+  renderSavedModal();
+  document.getElementById("savedKundliModal").style.display = "block";
+  // After render, focus the name input if opened via Save
+  if (FOCUS_SAVE) {
+    setTimeout(() => {
+      const i = document.getElementById("modalSaveName");
+      if (i) { i.focus(); i.select(); }
+    }, 50);
+  }
+}
+function closeSavedModal() {
+  document.getElementById("savedKundliModal").style.display = "none";
+}
+
+function renderSavedModal() {
+  const profiles = loadProfiles();
+  const tgt = SAVED_TARGET;
+  const tgtLabel = tgt === "self" ? "Self" : "Partner";
+  // Pre-fill the save name from the current form for this section
+  const prefillName = currentNameFor(tgt);
+  const rows = profiles.length ? profiles.map((p, i) => `
+    <tr>
+      <td><b>${p.name}</b></td>
+      <td>${p.input.day}-${monthName(p.input.month)}-${p.input.year}</td>
+      <td>${p.input.lat.toFixed(2)}, ${p.input.lon.toFixed(2)}</td>
+      <td style="white-space:nowrap;">
+        <button style="width:auto;padding:4px 10px;" onclick="loadSavedToTarget(${i})">Load as ${tgtLabel}</button>
+        <button style="width:auto;padding:4px 10px;background:var(--panel2);color:var(--text);" onclick="deleteFromModal(${i})">×</button>
+      </td>
+    </tr>`).join("") : `<tr><td colspan="4" class="small" style="font-style:italic;">No saved kundlis yet. Save your first one above.</td></tr>`;
+  document.getElementById("savedKundliModalBody").innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <h3 style="flex:1;margin:0;">Saved Kundlis — ${tgtLabel}</h3>
+      <button style="width:auto;padding:6px 12px;background:var(--panel2);color:var(--text);" onclick="closeSavedModal()">✕</button>
+    </div>
+    <p class="small" style="margin-bottom:10px;">Save the currently-loaded ${tgtLabel} (name pre-filled from the ${tgtLabel === 'Self' ? 'Birth Details' : 'Partner'} form — edit if you like), or load any saved kundli into the ${tgtLabel} slot. Stored locally on this device.</p>
+    <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:14px;">
+      <input id="modalSaveName" type="text" value="${prefillName.replace(/"/g, '&quot;')}" placeholder="${tgt==='self'?'e.g., Me, Mom':'e.g., Bride, Friend'}" onkeydown="if(event.key==='Enter'){event.preventDefault();quickSaveCurrent('${tgt}',true);}" style="width:auto;flex:1;min-width:160px;"/>
+      <button style="width:auto;padding:6px 14px;" onclick="quickSaveCurrent('${tgt}', true)">💾 Save current ${tgtLabel}</button>
+    </div>
+    <div class="scroll-x"><table>
+      <thead><tr><th>Name</th><th>Born</th><th>Place</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  `;
+}
+
+// Loads a saved kundli into Self or Partner slot, instantly, without changing
+// the active tab. Whatever tab the user is on stays active — Self loads regenerate
+// in place; Partner loads re-run the match in place. Switching from one loaded
+// kundli to another is now immediate.
+function loadSavedToTarget(idx) {
+  const arr = loadProfiles();
+  const p = arr[idx]; if (!p) return;
+  closeSavedModal();
+  if (SAVED_TARGET === "self") {
+    populateSelfForm(p.input);
+    generateChart();   // re-renders all panes; active tab is preserved
+  } else {
+    populatePartnerForm(p.input);
+    // Only run match if Self exists (it always does after generateChart)
+    if (SELF_DATA) runMatch();
+  }
+}
+
+function deleteFromModal(idx) {
+  const arr = loadProfiles();
+  if (!confirm(`Delete profile "${arr[idx].name}"?`)) return;
+  arr.splice(idx, 1);
+  saveProfiles(arr);
+  renderSavedModal();
+}
+
+// Save the current Self or Partner as a named profile.
+// The name is pre-filled from the section's form. Modal stays open after save
+// so the user sees the new entry appear in the list below.
+function quickSaveCurrent(target, fromModal) {
+  let inp;
+  if (target === "self") {
+    // Always read live form values so the latest edits are captured
+    inp = getInput("1") || (SELF_DATA ? SELF_DATA.input : null);
+    if (!inp) { alert("Please fill the birth form first."); return; }
+  } else {
+    inp = readPartnerFormInput();
+    if (!inp) { alert("Please fill the partner's birth details first."); return; }
+  }
+  let name = inp.name;
+  if (fromModal) {
+    const el = document.getElementById("modalSaveName");
+    if (el && el.value.trim()) name = el.value.trim();
+  }
+  if (!name) name = `Profile ${loadProfiles().length + 1}`;
+  const arr = loadProfiles();
+  arr.push({ name, input: inp, savedAt: Date.now() });
+  saveProfiles(arr);
+  renderSavedModal();   // refresh list so the new entry is visible
+}
+
+function renderSavedProfilesCard() {
+  const profiles = loadProfiles();
+  const rows = profiles.length ? profiles.map((p, i) => `
+    <tr>
+      <td><b>${p.name}</b></td>
+      <td>${p.input.day}-${monthName(p.input.month)}-${p.input.year}</td>
+      <td>${p.input.lat.toFixed(2)}, ${p.input.lon.toFixed(2)}</td>
+      <td style="white-space:nowrap;">
+        <button style="width:auto;padding:4px 10px;" onclick="loadProfileToForm(${i})">Load</button>
+        <button style="width:auto;padding:4px 10px;background:var(--panel2);color:var(--text);" onclick="deleteProfileAndRefresh(${i})">×</button>
+      </td>
+    </tr>`).join("") : "";
+  return `
+    <div class="card">
+      <h3 style="color:var(--accent);">Saved Kundlis</h3>
+      <p class="small">Self &amp; Partner birth details are auto-saved and restored when you reopen the app. You can also name and save additional profiles (e.g., family, friends).</p>
+      <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:12px;">
+        <input id="profileName" type="text" placeholder="Profile name (e.g., Mom)" style="width:auto;flex:1;min-width:180px;"/>
+        <button style="width:auto;padding:6px 14px;" onclick="saveCurrentAsProfile()">+ Save current as profile</button>
+      </div>
+      ${profiles.length > 0
+        ? `<div class="scroll-x" style="margin-top:14px;"><table>
+            <thead><tr><th>Name</th><th>Born</th><th>Place</th><th></th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table></div>`
+        : `<p class="small" style="margin-top:10px;font-style:italic;">No saved profiles yet — click + Save above.</p>`}
+    </div>
+  `;
+}
+
 // ---------- INIT ----------
 initCityDropdown();
-// Auto-generate on load with default values for demo
+// On load: restore last-saved Self input (if any) into the form, then auto-generate.
 window.addEventListener("load", () => {
+  const saved = loadSelfInput();
+  if (saved) populateSelfForm(saved);
   setTimeout(() => generateChart(), 200);
 });
 </script>
