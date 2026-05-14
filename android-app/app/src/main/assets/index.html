@@ -3755,10 +3755,11 @@ function loadProfileToForm(idx) {
 
 function deleteProfileAndRefresh(idx) {
   const arr = loadProfiles();
-  if (!confirm(`Delete profile "${arr[idx].name}"?`)) return;
-  arr.splice(idx, 1);
-  saveProfiles(arr);
-  renderSettings();
+  appConfirm(`Delete profile "${arr[idx].name}"?`, () => {
+    arr.splice(idx, 1);
+    saveProfiles(arr);
+    renderSettings();
+  }, { yesText: "Delete", dangerous: true });
 }
 
 // Read partner-form values without computing (for save before match)
@@ -3882,10 +3883,11 @@ function loadSavedToTarget(idx) {
 
 function deleteFromModal(idx) {
   const arr = loadProfiles();
-  if (!confirm(`Delete profile "${arr[idx].name}"?`)) return;
-  arr.splice(idx, 1);
-  saveProfiles(arr);
-  renderSavedModal();
+  appConfirm(`Delete profile "${arr[idx].name}"?`, () => {
+    arr.splice(idx, 1);
+    saveProfiles(arr);
+    renderSavedModal();
+  }, { yesText: "Delete", dangerous: true });
 }
 
 // Save the current Self or Partner as a named profile.
@@ -4270,6 +4272,32 @@ function describeReminder(r) {
 
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
+// In-app confirm dialog. Replaces window.confirm(), which Android WebView silently
+// suppresses when no WebChromeClient is set (the cause of "delete not working on mobile").
+// Usage: appConfirm("Delete X?", () => { /* do delete */ });
+function appConfirm(message, onYes, opts) {
+  const o = opts || {};
+  const existing = document.getElementById("appConfirm");
+  if (existing) existing.remove();
+  const div = document.createElement("div");
+  div.id = "appConfirm";
+  div.className = "modal";
+  div.style.display = "block";
+  div.innerHTML = `
+    <div class="modal-backdrop" onclick="document.getElementById('appConfirm').remove()"></div>
+    <div class="modal-card" style="max-width:380px;">
+      <p style="font-size:15px;line-height:1.5;color:var(--text);margin-bottom:18px;">${escapeHtml(message)}</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="secondary" id="appConfirmNo">${o.cancelText || 'Cancel'}</button>
+        <button class="${o.dangerous ? 'danger' : ''}" id="appConfirmYes">${o.yesText || 'Confirm'}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(div);
+  document.getElementById("appConfirmNo").onclick = () => div.remove();
+  document.getElementById("appConfirmYes").onclick = () => { div.remove(); try { onYes(); } catch(e){ console.error(e); } };
+}
+
 let EDITING_REMINDER = null;  // index into reminders array, or null for new
 function openReminderEditor(idx) {
   EDITING_REMINDER = idx;
@@ -4366,19 +4394,21 @@ function saveReminderFromEditor() {
 function editReminder(idx) { openReminderEditor(idx); }
 function deleteReminder(idx) {
   const arr = loadReminders();
-  if (!confirm(`Delete "${arr[idx].name}"?`)) return;
-  arr.splice(idx, 1);
-  saveReminders(arr);
-  renderRemindersPane();
+  appConfirm(`Delete reminder "${arr[idx].name}"?`, () => {
+    arr.splice(idx, 1);
+    saveReminders(arr);
+    renderRemindersPane();
+  }, { yesText: "Delete", dangerous: true });
 }
 function deleteReminderFromEditor() {
   if (EDITING_REMINDER === null) { closeSavedModal(); return; }
   const arr = loadReminders();
-  if (!confirm(`Delete "${arr[EDITING_REMINDER].name}"?`)) return;
-  arr.splice(EDITING_REMINDER, 1);
-  saveReminders(arr);
-  closeSavedModal();
-  renderRemindersPane();
+  appConfirm(`Delete reminder "${arr[EDITING_REMINDER].name}"?`, () => {
+    arr.splice(EDITING_REMINDER, 1);
+    saveReminders(arr);
+    closeSavedModal();
+    renderRemindersPane();
+  }, { yesText: "Delete", dangerous: true });
 }
 function toggleReminderActive(idx) {
   const arr = loadReminders();

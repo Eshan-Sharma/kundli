@@ -8,9 +8,12 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.webkit.JsResult
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 
@@ -35,7 +38,30 @@ class MainActivity : ComponentActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
+        webView.settings.databaseEnabled = true
         webView.webViewClient = WebViewClient()
+        // WebChromeClient — required for JS alert/confirm/prompt to actually display
+        // on Android WebView. Without it, JS dialogs are silently suppressed (the cause
+        // of "delete not working on mobile" reported earlier).
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                AlertDialog.Builder(this@MainActivity)
+                    .setMessage(message ?: "")
+                    .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
+                    .setOnCancelListener { result?.cancel() }
+                    .show()
+                return true
+            }
+            override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
+                AlertDialog.Builder(this@MainActivity)
+                    .setMessage(message ?: "")
+                    .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
+                    .setNegativeButton(android.R.string.cancel) { _, _ -> result?.cancel() }
+                    .setOnCancelListener { result?.cancel() }
+                    .show()
+                return true
+            }
+        }
         webView.loadUrl("file:///android_asset/index.html")
 
         ensureNotificationChannel()
