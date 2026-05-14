@@ -2816,6 +2816,7 @@ function renderCalDay(date, tz) {
       ${panchangHtml}
       ${sunHtml}
       ${chogHtml}
+      ${renderDietarySection(pan)}
     </div>
   `;
 }
@@ -2967,7 +2968,9 @@ const I18N = {
   "Vasanta":{hi:"वसन्त"},"Grishma":{hi:"ग्रीष्म"},"Varsha":{hi:"वर्षा"},"Sharad":{hi:"शरद"},"Hemanta":{hi:"हेमन्त"},"Shishira":{hi:"शिशिर"},
   // Other
   "Today":{hi:"आज"},"Day":{hi:"दिन"},"Week":{hi:"सप्ताह"},"Month":{hi:"मास"},"Year":{hi:"वर्ष"},
-  "Theme":{hi:"थीम"},"Language":{hi:"भाषा"},"Light":{hi:"उज्ज्वल"},"Dark":{hi:"श्याम"},"English":{hi:"अंग्रेज़ी"},"Hindi":{hi:"हिन्दी"},"Ayanamsa":{hi:"अयनांश"},"Default City":{hi:"डिफ़ॉल्ट शहर"},"Active Person":{hi:"वर्तमान व्यक्ति"}
+  "Theme":{hi:"थीम"},"Language":{hi:"भाषा"},"Light":{hi:"उज्ज्वल"},"Dark":{hi:"श्याम"},"English":{hi:"अंग्रेज़ी"},"Hindi":{hi:"हिन्दी"},"Ayanamsa":{hi:"अयनांश"},"Default City":{hi:"डिफ़ॉल्ट शहर"},"Active Person":{hi:"वर्तमान व्यक्ति"},
+  // Dietary
+  "Traditional Dietary Guidance":{hi:"पारंपरिक आहार सुझाव"},"Nakshatra Vriksha":{hi:"नक्षत्र वृक्ष"},"Prefer":{hi:"सेवन योग्य"}
 };
 
 function t(key) {
@@ -3074,6 +3077,149 @@ const FESTIVALS = [
   { p:"Shukla", t:13,                  en:"Pradosh Vrat",                 hi:"प्रदोष व्रत" },
   { p:"Krishna",t:13,                  en:"Pradosh Vrat",                 hi:"प्रदोष व्रत" }
 ];
+
+// ============================================================
+// TRADITIONAL DIETARY GUIDANCE
+// 4 datasets: Nakshatra Vriksha, Tithi-wise, Vaar-wise, Maas-wise
+// Sources: Brahmavaivarta Purana + traditional dohas + Vedic astrology
+// Indexed by position so spelling variants in keys don't matter.
+// ============================================================
+
+// Indexed 0-26 to match NAKSHATRAS array order
+const NAKSHATRA_VRIKSHA = [
+  { tree: "Kuchla / Strychnine tree" },                                       // 0  Ashwini
+  { tree: "Amla (Indian gooseberry)" },                                       // 1  Bharani
+  { tree: "Gular / Udumbar (cluster fig)" },                                  // 2  Krittika
+  { tree: "Jamun (black plum)" },                                             // 3  Rohini
+  { tree: "Khair (catechu)" },                                                // 4  Mrigashira
+  { tree: "Agar (aquilaria)" },                                               // 5  Ardra
+  { tree: "Bamboo" },                                                         // 6  Punarvasu
+  { tree: "Peepal (sacred fig)" },                                            // 7  Pushya
+  { tree: "Nagkesar" },                                                       // 8  Ashlesha
+  { tree: "Bargad / Vat (banyan)" },                                          // 9  Magha
+  { tree: "Palash (flame of the forest)" },                                   // 10 Purva Phalguni
+  { tree: "Pakar (Ficus tinctoria)", variant: "North Indian tradition: Rudraksha" }, // 11 Uttara Phalguni
+  { tree: "Reetha (soapnut)" },                                               // 12 Hasta
+  { tree: "Bel (Bengal quince)" },                                            // 13 Chitra
+  { tree: "Arjun" },                                                          // 14 Swati
+  { tree: "Kaith (wood apple)" },                                             // 15 Vishakha
+  { tree: "Maulsari / Bakul" },                                               // 16 Anuradha
+  { tree: "Semal (silk cotton)" },                                            // 17 Jyeshtha
+  { tree: "Saal / Raal (sal tree)" },                                         // 18 Mula
+  { tree: "Jalvetas (water willow)" },                                        // 19 Purvashadha
+  { tree: "Kathal / Panas (jackfruit)" },                                     // 20 Uttarashadha
+  { tree: "Aak / Madar (calotropis)" },                                       // 21 Shravana
+  { tree: "Shami", variant: "Some sources: Moringa / Sahjan" },               // 22 Dhanishta
+  { tree: "Kadamb" },                                                         // 23 Shatabhisha
+  { tree: "Aam (mango)", variant: "South Indian tradition: Saaj" },           // 24 Purva Bhadrapada
+  { tree: "Neem", variant: "South Indian tradition: Talipot palm" },          // 25 Uttara Bhadrapada
+  { tree: "Mahua" }                                                           // 26 Revati
+];
+
+// Indexed by within-paksha tithi 1..13 (index 0..12). Tithis 14, 15 (and Krishna 15) not in this list.
+const TITHI_AVOID = [
+  { tithi:"Pratipada",  avoid:"Kaddu / petha (pumpkin, ash gourd)", reason:"Loss of wealth" },
+  { tithi:"Dwitiya",    avoid:"Baingan (brinjal)",                  variant:"Some sources also list kathal (jackfruit)" },
+  { tithi:"Tritiya",    avoid:"Parwal (pointed gourd)",             reason:"Increase in enemies" },
+  { tithi:"Chaturthi",  avoid:"Mooli (radish)",                     reason:"Loss of wealth" },
+  { tithi:"Panchami",   avoid:"Bel / bilva fruit",                  reason:"Brings disrepute" },
+  { tithi:"Shashthi",   avoid:"Neem (leaves, fruit, even datun)",   reason:"Leads to a lower birth" },
+  { tithi:"Saptami",    avoid:"Taad fruit (palm)",                  variant:"Some sources: khajur (dates)", reason:"Increases disease, harms the body" },
+  { tithi:"Ashtami",    avoid:"Nariyal (coconut)",                  reason:"Destroys intellect" },
+  { tithi:"Navami",     avoid:"Lauki (bottle gourd)",               reason:"Held equal to eating beef" },
+  { tithi:"Dashami",    avoid:"Kalambi (kalmi saag / water spinach)" },
+  { tithi:"Ekadashi",   avoid:"Sem ki phali (beans)",               variant:"Rice is also widely avoided on Ekadashi generally" },
+  { tithi:"Dwadashi",   avoid:"Poi / putika (Malabar spinach)" },
+  { tithi:"Trayodashi", avoid:"Baingan (brinjal)" }
+];
+
+// Indexed by weekday 0=Sun..6=Sat
+const VAAR_AVOID = [
+  { graha:"Surya",   avoid:"Masoor dal, ginger, red vegetables; oil (some traditions keep saltless food)" },
+  { graha:"Chandra", avoid:"Sugar (chini) — considered the Moon's own food" },
+  { graha:"Mangal",  avoid:"Ghee; black / dark-coloured foods; non-veg" },
+  { graha:"Budh",    avoid:"Green vegetables (tradition: donate them instead)" },
+  { graha:"Guru",    avoid:"Milk and bananas; non-veg" },
+  { graha:"Shukra",  avoid:"Sour things (khatai) — especially on Santoshi Mata vrat" },
+  { graha:"Shani",   avoid:"Alcohol / intoxicants, non-veg (some add white foods, packed / stale food)" }
+];
+
+// Maas-wise — keyed by this repo's solar-month names (Vaishakha, Ashadha, Pausha etc.)
+const MAAS_GUIDANCE = {
+  "Chaitra":      { approx:"Mar–Apr", avoid:"Gud (jaggery)",                      prefer:"Chana" },
+  "Vaishakha":    { approx:"Apr–May", avoid:"Tel (oil)",                          prefer:"Bel" },
+  "Jyeshtha":     { approx:"May–Jun", avoid:"Long travel / exertion (\"panth\")", prefer:"Shayan — afternoon rest" },
+  "Ashadha":      { approx:"Jun–Jul", avoid:"Bel",                                prefer:"Khel — physical activity" },
+  "Shravana":     { approx:"Jul–Aug", avoid:"Saag (leafy greens)",                prefer:"Harre (haritaki)" },
+  "Bhadrapada":   { approx:"Aug–Sep", avoid:"Mahi / dahi (buttermilk, curd)",     prefer:"Til (sesame)" },
+  "Ashwina":      { approx:"Sep–Oct", avoid:"Karela (bitter gourd)",              prefer:"Gud, daily" },
+  "Kartika":      { approx:"Oct–Nov", avoid:"Dahi (curd)",                        prefer:"Mool (radish)", variant:"Some sources also list brinjal and jeera as avoid" },
+  "Margashirsha": { approx:"Nov–Dec", avoid:"Jeera (cumin)",                      prefer:"Tel (oil)" },
+  "Pausha":       { approx:"Dec–Jan", avoid:"Dhaniya (coriander) — \"cooling\"",  prefer:"Doodh (milk)" },
+  "Magha":        { approx:"Jan–Feb", avoid:"Mishri (rock sugar)",                prefer:"Ghee-khichdi", variant:"Some sources also list mooli and dhaniya as avoid" },
+  "Phalguna":     { approx:"Feb–Mar", avoid:"Chana (gram)",                       prefer:"Wake early, bathe daily" }
+};
+
+function renderDietarySection(pan) {
+  const wpTithi = (pan.tithiNum % 15) + 1;   // 1..15
+  const tithiData = (wpTithi <= 13) ? TITHI_AVOID[wpTithi - 1] : null;
+  const vaarData  = VAAR_AVOID[pan.weekday];
+  const maasData  = MAAS_GUIDANCE[pan.hinduMonth];
+  const nakData   = NAKSHATRA_VRIKSHA[pan.nakshatra.idx];
+
+  const variantHtml = (v) => v ? `<div class="small" style="color:var(--muted);margin-top:2px;font-style:italic;">${v}</div>` : "";
+  const reasonHtml  = (r) => r ? `<div class="small" style="color:var(--muted);margin-top:2px;">→ ${r}</div>` : "";
+
+  let inner = "";
+  // Nakshatra Vriksha
+  if (nakData) {
+    inner += `<div class="info-cell" style="border-left-color:var(--good);margin-bottom:8px;">
+      <div class="lbl">${t('Nakshatra Vriksha')} — ${pan.nakshatra.name}</div>
+      <div class="val" style="font-size:14px;">🌳 ${nakData.tree}</div>
+      ${variantHtml(nakData.variant)}
+      <div class="small" style="margin-top:4px;">Tradition: plant and nurture this tree; avoid eating its produce or harming it. Strongest for your janma nakshatra.</div>
+    </div>`;
+  }
+  // Tithi
+  if (tithiData) {
+    inner += `<div class="info-cell" style="border-left-color:var(--bad);margin-bottom:8px;">
+      <div class="lbl">${t('Tithi')} ${tithiData.tithi} — ${t('Avoid')}</div>
+      <div class="val" style="font-size:14px;">🚫 ${tithiData.avoid}</div>
+      ${variantHtml(tithiData.variant)}
+      ${reasonHtml(tithiData.reason)}
+    </div>`;
+  } else {
+    inner += `<div class="info-cell" style="margin-bottom:8px;">
+      <div class="lbl">${t('Tithi')} ${t(pan.tithiName)}</div>
+      <div class="small">No specific dietary avoidance from the Brahmavaivarta Purana list for Chaturdashi / Purnima / Amavasya.</div>
+    </div>`;
+  }
+  // Vaar
+  if (vaarData) {
+    inner += `<div class="info-cell" style="border-left-color:var(--bad);margin-bottom:8px;">
+      <div class="lbl">${t(WEEKDAY_NAMES[pan.weekday])} (${vaarData.graha}) — ${t('Avoid')}</div>
+      <div class="val" style="font-size:14px;">🚫 ${vaarData.avoid}</div>
+    </div>`;
+  }
+  // Maas
+  if (maasData) {
+    inner += `<div class="info-cell" style="margin-bottom:8px;">
+      <div class="lbl">${t(pan.hinduMonth)} (${maasData.approx})</div>
+      <div class="val" style="font-size:14px;"><span style="color:var(--bad)">🚫 ${t('Avoid')}:</span> ${maasData.avoid}</div>
+      <div class="val" style="font-size:14px;margin-top:4px;"><span style="color:var(--good)">✓ ${t('Prefer')}:</span> ${maasData.prefer}</div>
+      ${variantHtml(maasData.variant)}
+    </div>`;
+  }
+
+  const disclaimer = `<div class="small" style="margin-top:8px;color:var(--muted);font-style:italic;line-height:1.5;">
+    These notes come from traditional Hindu texts (Brahmavaivarta Purana and traditional dohas) and from classical Vedic astrology. They are presented as cultural and scriptural guidance — the texts frame them partly in health terms, but this is not clinical nutrition or medical advice. Regional traditions differ on several entries.
+  </div>`;
+
+  return `<details style="margin-top:14px;">
+    <summary style="color:var(--accent);font-weight:600;">${t('Traditional Dietary Guidance')} ▾</summary>
+    <div style="margin-top:10px;">${inner}${disclaimer}</div>
+  </details>`;
+}
 
 function festivalsForPanchang(pan) {
   // within-paksha 1-indexed tithi
