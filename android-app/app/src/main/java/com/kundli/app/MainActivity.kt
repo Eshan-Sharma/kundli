@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
         webView.webViewClient = WebViewClient()
-        webView.loadUrl("file:///android_asset/kundli.html")
+        webView.loadUrl("file:///android_asset/index.html")
 
         ensureNotificationChannel()
         askNotificationPermissionIfNeeded()
