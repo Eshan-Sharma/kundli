@@ -553,8 +553,8 @@
   <!-- Floating bottom navigation -->
   <nav class="bottom-nav" id="bottomNav">
     <button class="nav-btn active" data-nav="panchang"><svg><use href="#i-calendar"/></svg><span class="lbl" data-lbl="Panchang">Panchang</span></button>
-    <button class="nav-btn" data-nav="kundli"><svg><use href="#i-planet"/></svg><span class="lbl" data-lbl="Kundli">Kundli</span></button>
     <button class="nav-btn" data-nav="muhurat"><svg><use href="#i-flame"/></svg><span class="lbl" data-lbl="Muhurat">Muhurat</span></button>
+    <button class="nav-btn" data-nav="kundli"><svg><use href="#i-planet"/></svg><span class="lbl" data-lbl="Kundli">Kundli</span></button>
     <button class="nav-btn" data-nav="match"><svg><use href="#i-heart"/></svg><span class="lbl" data-lbl="Milan">Milan</span></button>
     <button class="nav-btn" data-nav="reminders"><svg><use href="#i-bell"/></svg><span class="lbl" data-lbl="Reminders">Reminders</span></button>
   </nav>
@@ -4147,7 +4147,12 @@ function isCurrentChoghadia(c, dateObj) {
 //   - recurrence: 'repeat' (every match) or 'once' (auto-deactivate after fire)
 // ============================================================
 function loadReminders() { return loadJSON("kundliReminders") || []; }
-function saveReminders(arr) { saveJSON("kundliReminders", arr); }
+function saveReminders(arr) {
+  saveJSON("kundliReminders", arr);
+  // Mirror to native (Android) for widgets + native daily notification scheduling.
+  // On web/desktop window.KundliBridge is undefined → no-op.
+  try { if (window.KundliBridge && window.KundliBridge.setReminders) window.KundliBridge.setReminders(JSON.stringify(arr)); } catch(e) {}
+}
 
 function reminderMatchesPanchang(r, pan, dateObj) {
   if (!r.active) return false;
@@ -4298,6 +4303,37 @@ function appConfirm(message, onYes, opts) {
   document.getElementById("appConfirmYes").onclick = () => { div.remove(); try { onYes(); } catch(e){ console.error(e); } };
 }
 
+// One-tap presets for the most common reminder patterns.
+// Click → auto-fills the editor fields below; user can save immediately or tweak.
+const REMINDER_PRESETS = [
+  { id:"ekadashi", icon:"🌙", label:"Every Ekadashi",       name:"Ekadashi",          fields:{ tithi:11 } },
+  { id:"pradosh",  icon:"🪔", label:"Every Pradosh (13)",    name:"Pradosh Vrat",      fields:{ tithi:13 } },
+  { id:"purnima",  icon:"🌕", label:"Every Purnima",         name:"Purnima",           fields:{ tithi:15, paksha:"Shukla" } },
+  { id:"amavasya", icon:"🌑", label:"Every Amavasya",        name:"Amavasya",          fields:{ tithi:15, paksha:"Krishna" } },
+  { id:"sank",     icon:"🐘", label:"Sankashti Chaturthi",   name:"Sankashti",         fields:{ tithi:4, paksha:"Krishna" } },
+  { id:"vinayaka", icon:"🐘", label:"Vinayaka Chaturthi",    name:"Vinayaka Chaturthi",fields:{ tithi:4, paksha:"Shukla" } },
+  { id:"tuesday",  icon:"♂",  label:"Every Tuesday",         name:"Tuesday (Hanuman)", fields:{ vaar:2 } },
+  { id:"saturday", icon:"♄",  label:"Every Saturday",        name:"Saturday (Shani)",  fields:{ vaar:6 } },
+  { id:"mula",     icon:"✨",  label:"Every Mula Nakshatra",  name:"Mula Nakshatra",   fields:{ nakshatra:18 } },
+];
+// Applies a preset to the editor — RESETS all condition fields first so picking a
+// different preset gives a clean override (no leftover conditions from the previous one).
+function applyReminderPreset(presetId) {
+  const p = REMINDER_PRESETS.find(x => x.id === presetId); if (!p) return;
+  const f = p.fields;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v === undefined || v === null ? "" : v); };
+  // Always overwrite the name with the preset's name (so switching presets renames cleanly)
+  document.getElementById("rmName").value = p.name;
+  // Reset every condition field, then set only those in the preset
+  set("rmTithi", f.tithi);
+  set("rmPaksha", f.paksha || "any");
+  set("rmVaar", f.vaar);
+  set("rmNak", f.nakshatra);
+  set("rmMonth", f.month);
+  set("rmYoga", f.yoga);
+  set("rmDate", f.date);
+}
+
 let EDITING_REMINDER = null;  // index into reminders array, or null for new
 function openReminderEditor(idx) {
   EDITING_REMINDER = idx;
@@ -4312,7 +4348,10 @@ function openReminderEditor(idx) {
       <h3 style="flex:1;margin:0;">${idx === null ? 'New Reminder' : 'Edit Reminder'}</h3>
       <button class="ghost" onclick="closeSavedModal()" style="padding:6px;"><svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;"><use href="#i-x"/></svg></button>
     </div>
-    <p class="small" style="color:var(--text-2);margin-bottom:14px;">Set any combination of conditions. The reminder fires on days that match <b>all</b> set conditions. Leave a field empty/"Any" to skip that condition.</p>
+    <p class="small" style="color:var(--text-2);margin-bottom:10px;">Pick a preset to auto-fill, or set conditions manually below. The reminder fires on days that match <b>all</b> set conditions.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+      ${REMINDER_PRESETS.map(p => `<button class="secondary" style="padding:5px 10px;font-size:12px;" onclick="applyReminderPreset('${p.id}')">${p.icon} ${escapeHtml(p.label)}</button>`).join("")}
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div style="grid-column:1/-1;"><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Name *</label>
         <input id="rmName" value="${r.name?escapeHtml(r.name):''}" placeholder="Ekadashi Vrat" /></div>

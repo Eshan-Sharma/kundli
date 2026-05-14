@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.content.Context
+import android.webkit.JavascriptInterface
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -62,6 +64,8 @@ class MainActivity : ComponentActivity() {
                 return true
             }
         }
+        // JS bridge — mirrors reminders into SharedPreferences so widgets can read them
+        webView.addJavascriptInterface(KundliBridge(this), "KundliBridge")
         webView.loadUrl("file:///android_asset/index.html")
 
         ensureNotificationChannel()
@@ -93,5 +97,22 @@ class MainActivity : ComponentActivity() {
     override fun onBackPressed() {
         val webView = findViewById<WebView>(R.id.webview)
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+    }
+}
+
+/**
+ * Exposed to JS as `window.KundliBridge`. JS calls `setReminders(json)` after every
+ * save; we mirror the JSON to SharedPreferences and refresh the reminder widgets.
+ */
+class KundliBridge(private val ctx: Context) {
+    @JavascriptInterface
+    fun setReminders(json: String) {
+        ctx.getSharedPreferences("kundli", Context.MODE_PRIVATE)
+            .edit().putString("reminders", json).apply()
+        // Fire on the main thread — widgets refresh from background runs but UI updates from native widget code
+        try {
+            ReminderListWidget.refreshAll(ctx)
+            ReminderMiniWidget.refreshAll(ctx)
+        } catch (_: Throwable) { /* widget classes added in their own step */ }
     }
 }

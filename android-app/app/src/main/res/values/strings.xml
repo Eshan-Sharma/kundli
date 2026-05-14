@@ -7,4 +7,6 @@
     <string name="widget_festival_desc">Today\'s festival or the next upcoming one (4×1)</string>
     <string name="widget_mini_desc">Compact 2×2 — direction arrow + tithi + nakshatra</string>
     <string name="widget_food_desc">Today\'s dietary guidance — Tithi/Vaar/Maas: what to avoid &amp; prefer</string>
+    <string name="widget_reminder_list_desc">Your reminders firing today (4×2 list)</string>
+    <string name="widget_reminder_mini_desc">Count of reminders firing today (1×1 mini)</string>
 </resources>

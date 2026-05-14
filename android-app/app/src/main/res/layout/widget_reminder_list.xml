@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rl_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@drawable/widget_bg" android:padding="10dp">
+    <TextView android:id="@+id/rl_date"   android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/accent" android:textStyle="bold" android:textSize="11sp"/>
+    <TextView android:id="@+id/rl_header" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="13sp" android:textStyle="bold" android:paddingTop="2dp"/>
+    <TextView android:id="@+id/rl_item1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/good"  android:textSize="11sp" android:paddingTop="4dp" android:singleLine="true" android:ellipsize="end"/>
+    <TextView android:id="@+id/rl_item2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/good"  android:textSize="11sp" android:singleLine="true" android:ellipsize="end"/>
+    <TextView android:id="@+id/rl_item3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/good"  android:textSize="11sp" android:singleLine="true" android:ellipsize="end"/>
+    <TextView android:id="@+id/rl_item4" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/good"  android:textSize="11sp" android:singleLine="true" android:ellipsize="end"/>
+</LinearLayout>

@@ -58,6 +58,8 @@ class DailyWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
         FestivalWidget.refreshAll(ctx)
         MiniWidget.refreshAll(ctx)
         FoodWidget.refreshAll(ctx)
+        ReminderListWidget.refreshAll(ctx)
+        ReminderMiniWidget.refreshAll(ctx)
 
         return Result.success()
     }

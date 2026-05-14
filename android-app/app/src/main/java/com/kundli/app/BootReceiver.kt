@@ -16,6 +16,8 @@ class BootReceiver : BroadcastReceiver() {
             FestivalWidget.refreshAll(context)
             MiniWidget.refreshAll(context)
             FoodWidget.refreshAll(context)
+            ReminderListWidget.refreshAll(context)
+            ReminderMiniWidget.refreshAll(context)
         }
     }
 }

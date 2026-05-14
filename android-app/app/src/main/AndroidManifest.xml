@@ -55,6 +55,16 @@
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_food"/>
         </receiver>
+        <!-- Reminder list widget (4×2) — user reminders firing today -->
+        <receiver android:name=".ReminderListWidget" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_reminder_list"/>
+        </receiver>
+        <!-- Reminder mini widget (1×1) — count of reminders today -->
+        <receiver android:name=".ReminderMiniWidget" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_reminder_mini"/>
+        </receiver>
 
         <!-- Boot receiver to re-schedule daily notification -->
         <receiver
