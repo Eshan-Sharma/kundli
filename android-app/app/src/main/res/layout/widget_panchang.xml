@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/p_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@drawable/widget_bg" android:padding="10dp">
+    <TextView android:id="@+id/p_date"  android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/accent" android:textStyle="bold" android:textSize="13sp"/>
+    <TextView android:id="@+id/p_tithi" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="14sp" android:textStyle="bold" android:paddingTop="4dp"/>
+    <TextView android:id="@+id/p_nak"   android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="12sp"/>
+    <TextView android:id="@+id/p_yoga"  android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/muted" android:textSize="11sp"/>
+    <TextView android:id="@+id/p_sun"   android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/good" android:textSize="11sp" android:paddingTop="2dp"/>
+    <TextView android:id="@+id/p_maas"  android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/muted" android:textSize="10sp"/>
+</LinearLayout>

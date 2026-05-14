@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/f_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@drawable/widget_bg" android:padding="10dp" android:gravity="center_vertical">
+    <TextView android:id="@+id/f_label" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/accent" android:textSize="10sp" android:textStyle="bold"/>
+    <TextView android:id="@+id/f_name"  android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/good" android:textSize="14sp" android:textStyle="bold" android:singleLine="true" android:ellipsize="end"/>
+    <TextView android:id="@+id/f_date"  android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/muted" android:textSize="10sp"/>
+</LinearLayout>

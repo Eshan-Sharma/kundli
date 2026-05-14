@@ -51,8 +51,13 @@ class DailyWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(1001, notif)
 
-        // Refresh widget(s) too
+        // Refresh all widget instances
         DirectionWidget.refreshAll(ctx)
+        PanchangWidget.refreshAll(ctx)
+        MuhuratWidget.refreshAll(ctx)
+        FestivalWidget.refreshAll(ctx)
+        MiniWidget.refreshAll(ctx)
+        FoodWidget.refreshAll(ctx)
 
         return Result.success()
     }

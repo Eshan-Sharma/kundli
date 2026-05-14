@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/mi_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@drawable/widget_bg" android:padding="8dp" android:gravity="center">
+    <TextView android:id="@+id/mi_arrow" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="32sp" android:textStyle="bold"/>
+    <TextView android:id="@+id/mi_dir"   android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="11sp" android:textStyle="bold"/>
+    <TextView android:id="@+id/mi_tithi" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/accent" android:textSize="10sp" android:paddingTop="4dp"/>
+    <TextView android:id="@+id/mi_nak"   android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/muted" android:textSize="9sp"/>
+</LinearLayout>

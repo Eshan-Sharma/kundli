@@ -2,4 +2,9 @@
 <resources>
     <string name="app_name">Kundli</string>
     <string name="widget_desc">Today\'s good travel directions (Moon + Disha Shool)</string>
+    <string name="widget_panchang_desc">Today\'s Panchang — Tithi, Nakshatra, Yoga, Karana, Sunrise/Sunset</string>
+    <string name="widget_muhurat_desc">Today\'s Muhurat — Abhijit, Brahma, Rahu Kaal, Yamaganda, Gulika</string>
+    <string name="widget_festival_desc">Today\'s festival or the next upcoming one (4×1)</string>
+    <string name="widget_mini_desc">Compact 2×2 — direction arrow + tithi + nakshatra</string>
+    <string name="widget_food_desc">Today\'s dietary guidance — Tithi/Vaar/Maas: what to avoid &amp; prefer</string>
 </resources>

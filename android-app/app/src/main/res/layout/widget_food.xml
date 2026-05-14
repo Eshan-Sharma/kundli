@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fo_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@drawable/widget_bg" android:padding="10dp">
+    <TextView android:id="@+id/fo_date"         android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/accent" android:textStyle="bold" android:textSize="11sp"/>
+    <TextView android:id="@+id/fo_tithi_avoid"  android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/bad"   android:textSize="11sp" android:paddingTop="3dp" android:singleLine="true" android:ellipsize="end"/>
+    <TextView android:id="@+id/fo_vaar_avoid"   android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/bad"   android:textSize="11sp" android:singleLine="true" android:ellipsize="end"/>
+    <TextView android:id="@+id/fo_maas_avoid"   android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/bad"   android:textSize="11sp" android:singleLine="true" android:ellipsize="end"/>
+    <TextView android:id="@+id/fo_maas_prefer"  android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/good"  android:textSize="11sp" android:singleLine="true" android:ellipsize="end"/>
+    <TextView android:id="@+id/fo_tree"         android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/muted" android:textSize="10sp" android:singleLine="true" android:ellipsize="end"/>
+</LinearLayout>

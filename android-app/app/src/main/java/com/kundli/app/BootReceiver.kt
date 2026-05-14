@@ -11,6 +11,11 @@ class BootReceiver : BroadcastReceiver() {
             intent.action == "android.intent.action.QUICKBOOT_POWERON") {
             DailyWorker.schedule(context)
             DirectionWidget.refreshAll(context)
+            PanchangWidget.refreshAll(context)
+            MuhuratWidget.refreshAll(context)
+            FestivalWidget.refreshAll(context)
+            MiniWidget.refreshAll(context)
+            FoodWidget.refreshAll(context)
         }
     }
 }

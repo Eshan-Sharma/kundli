@@ -25,16 +25,35 @@
             </intent-filter>
         </activity>
 
-        <!-- Home-screen widget -->
-        <receiver
-            android:name=".DirectionWidget"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info_4x2" />
+        <!-- Direction widget (4×2) — primary/secondary direction arrows -->
+        <receiver android:name=".DirectionWidget" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_4x2"/>
+        </receiver>
+        <!-- Panchang widget (4×2) — tithi, nakshatra, yoga, karana, sunrise/set -->
+        <receiver android:name=".PanchangWidget" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_panchang"/>
+        </receiver>
+        <!-- Muhurat widget (4×2) — Abhijit, Brahma, Rahu/Yama/Gulika Kaal -->
+        <receiver android:name=".MuhuratWidget" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_muhurat"/>
+        </receiver>
+        <!-- Festival widget (4×1) — today's or next upcoming festival -->
+        <receiver android:name=".FestivalWidget" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_festival"/>
+        </receiver>
+        <!-- Mini widget (2×2) — compact direction + tithi -->
+        <receiver android:name=".MiniWidget" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_mini"/>
+        </receiver>
+        <!-- Food widget (4×2) — what to eat / avoid by tithi/vaar/maas -->
+        <receiver android:name=".FoodWidget" android:exported="true">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_food"/>
         </receiver>
 
         <!-- Boot receiver to re-schedule daily notification -->
