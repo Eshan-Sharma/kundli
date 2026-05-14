@@ -3,109 +3,123 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kundli & Rashi — Vedic Astrology Software</title>
+<title>Kundli & Panchang</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  /* Base shared */
-  :root { --shadow: 0 2px 8px rgba(0,0,0,0.4); --card-radius: 12px; --good:#6ab04c; --bad:#e74c3c; --warn:#f39c12; }
-  :root[data-theme="light"] { --shadow: 0 1px 4px rgba(0,0,0,0.08); --good:#2d8c3c; --bad:#c0392b; --warn:#d68910; }
-
-  /* === SAFFRON (default) === */
-  :root, :root[data-scheme="saffron"][data-theme="dark"] {
-    --bg:#121212; --bg-grad:linear-gradient(180deg,#121212,#0d0d0d); --panel:#1e1e1e; --panel2:#262626;
-    --accent:#ff9933; --accent2:#ff6b1a; --text:#f0e6d2; --muted:#998877; --border:#3a2a1a;
+  /* === MODERN VEDIC theme (Direction C). One palette, two modes. === */
+  :root, :root[data-theme="dark"] {
+    --bg: #0a0a0a;
+    --bg-tint: radial-gradient(ellipse 800px 400px at top, rgba(255,140,66,0.06), transparent 60%), #0a0a0a;
+    --panel: #131313;
+    --panel2: #1c1c1c;
+    --surface-3: #242424;
+    --hero-grad: linear-gradient(135deg, #1a1614 0%, #1f1410 50%, #1a0e08 100%);
+    --hero-overlay: linear-gradient(135deg, rgba(255,140,66,0.15), rgba(255,107,26,0.05));
+    --text: #f5f5f5;
+    --text-2: #a3a3a3;
+    --text-3: #6b6b6b;
+    --accent: #ff8c42;
+    --accent-2: #ff6b1a;
+    --accent-soft: rgba(255,140,66,0.12);
+    --good: #22c55e;
+    --good-soft: rgba(34,197,94,0.14);
+    --bad: #ef4444;
+    --bad-soft: rgba(239,68,68,0.14);
+    --warn: #f59e0b;
+    --warn-soft: rgba(245,158,11,0.14);
+    --border: rgba(255,255,255,0.06);
+    --border-strong: rgba(255,255,255,0.10);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-md: 0 8px 24px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.5);
+    /* legacy aliases used in older code */
+    --muted: var(--text-3);
+    --accent2: var(--accent-2);
+    --card-radius: 18px;
+    --shadow: var(--shadow-md);
   }
-  :root[data-scheme="saffron"][data-theme="light"] {
-    --bg:#fff8f0; --bg-grad:linear-gradient(180deg,#fff8f0,#fff3e0); --panel:#ffffff; --panel2:#fff3e0;
-    --accent:#ff6b1a; --accent2:#c0392b; --text:#1a1a1a; --muted:#777; --border:#ffd4a3;
-  }
-  /* === ROYAL BLUE === */
-  :root[data-scheme="blue"][data-theme="dark"] {
-    --bg:#0a0e1a; --bg-grad:linear-gradient(180deg,#0a0e1a,#050810); --panel:#141a2c; --panel2:#1c2540;
-    --accent:#5a9ee8; --accent2:#3a7dc8; --text:#e8eef5; --muted:#7d8ba8; --border:#2a3550;
-  }
-  :root[data-scheme="blue"][data-theme="light"] {
-    --bg:#f0f4fa; --bg-grad:linear-gradient(180deg,#f0f4fa,#e3ecf7); --panel:#ffffff; --panel2:#e8eef7;
-    --accent:#1e5fc8; --accent2:#143a85; --text:#0a1828; --muted:#5a6b80; --border:#c5d3e8;
-  }
-  /* === FOREST GREEN === */
-  :root[data-scheme="green"][data-theme="dark"] {
-    --bg:#0d1410; --bg-grad:linear-gradient(180deg,#0d1410,#08100a); --panel:#162018; --panel2:#1d2a20;
-    --accent:#4caf50; --accent2:#2e7d32; --text:#e0eee2; --muted:#7d9080; --border:#2a3a2e;
-  }
-  :root[data-scheme="green"][data-theme="light"] {
-    --bg:#f0f7f0; --bg-grad:linear-gradient(180deg,#f0f7f0,#e3f0e3); --panel:#ffffff; --panel2:#e3f0e3;
-    --accent:#2e7d32; --accent2:#1b5e20; --text:#0d2e10; --muted:#558055; --border:#c8e0c8;
-  }
-  /* === MAROON / TEMPLE === */
-  :root[data-scheme="maroon"][data-theme="dark"] {
-    --bg:#1a0d0d; --bg-grad:linear-gradient(180deg,#1a0d0d,#0f0606); --panel:#241414; --panel2:#2e1c1c;
-    --accent:#e74c3c; --accent2:#c0392b; --text:#f5e5e5; --muted:#a08080; --border:#3a2424;
-  }
-  :root[data-scheme="maroon"][data-theme="light"] {
-    --bg:#fdf5f5; --bg-grad:linear-gradient(180deg,#fdf5f5,#fae5e5); --panel:#ffffff; --panel2:#fae5e5;
-    --accent:#922b21; --accent2:#641e18; --text:#2c0d0d; --muted:#806060; --border:#ecc8c8;
-  }
-  /* === SLATE / MINIMAL === */
-  :root[data-scheme="slate"][data-theme="dark"] {
-    --bg:#0e1014; --bg-grad:linear-gradient(180deg,#0e1014,#070a0e); --panel:#181c22; --panel2:#22272e;
-    --accent:#7ab8e8; --accent2:#455a64; --text:#e0e3e8; --muted:#7d8590; --border:#2a3038;
-  }
-  :root[data-scheme="slate"][data-theme="light"] {
-    --bg:#f5f6f8; --bg-grad:linear-gradient(180deg,#f5f6f8,#e8eaee); --panel:#ffffff; --panel2:#eef0f3;
-    --accent:#455a64; --accent2:#263238; --text:#1c2329; --muted:#5a6570; --border:#d0d5dc;
-  }
-  /* === PURPLE === */
-  :root[data-scheme="purple"][data-theme="dark"] {
-    --bg:#150d1a; --bg-grad:linear-gradient(180deg,#150d1a,#0a0510); --panel:#1f1428; --panel2:#2a1c35;
-    --accent:#ab47bc; --accent2:#7b1fa2; --text:#ede0f5; --muted:#8a7896; --border:#3a2845;
-  }
-  :root[data-scheme="purple"][data-theme="light"] {
-    --bg:#faf5fd; --bg-grad:linear-gradient(180deg,#faf5fd,#f0e5f8); --panel:#ffffff; --panel2:#f0e5f8;
-    --accent:#6a1b9a; --accent2:#4a148c; --text:#220a2e; --muted:#705580; --border:#e0c8ec;
+  :root[data-theme="light"] {
+    --bg: #fafaf7;
+    --bg-tint: radial-gradient(ellipse 800px 400px at top, rgba(255,107,26,0.05), transparent 60%), #fafaf7;
+    --panel: #ffffff;
+    --panel2: #f5f1ea;
+    --surface-3: #f0eae0;
+    --hero-grad: linear-gradient(135deg, #fff9f3 0%, #ffeed8 50%, #ffe0b8 100%);
+    --hero-overlay: linear-gradient(135deg, rgba(255,107,26,0.10), rgba(226,88,34,0.04));
+    --text: #1a1a1a;
+    --text-2: #525252;
+    --text-3: #a3a3a3;
+    --accent: #e25822;
+    --accent-2: #b8401a;
+    --accent-soft: rgba(226,88,34,0.08);
+    --good: #16a34a;
+    --good-soft: rgba(22,163,74,0.10);
+    --bad: #dc2626;
+    --bad-soft: rgba(220,38,38,0.08);
+    --warn: #d97706;
+    --warn-soft: rgba(217,119,6,0.10);
+    --border: rgba(0,0,0,0.06);
+    --border-strong: rgba(0,0,0,0.10);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+    --muted: var(--text-3);
+    --accent2: var(--accent-2);
+    --card-radius: 18px;
+    --shadow: var(--shadow-md);
   }
   body {
-    font-family: -apple-system, 'Segoe UI', 'Noto Sans Devanagari', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: var(--bg-grad);
+    font-family: 'Inter', -apple-system, system-ui, 'Segoe UI', 'Noto Sans Devanagari', Roboto, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+    background: var(--bg-tint);
     color: var(--text);
     min-height: 100vh;
     padding: 0;
-    transition: background 0.2s, color 0.2s;
+    transition: background 0.3s, color 0.3s;
   }
+  .display, h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; letter-spacing: -0.02em; }
+  code, .mono, .tabular { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  table { font-family: inherit; }
   /* APP SHELL */
-  .app-shell { max-width: 1400px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 70px; }
-  .appbar { position: sticky; top: 0; z-index: 100; background: var(--panel); border-bottom: 1px solid var(--border);
-    padding: 12px 18px; display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow); }
-  .appbar .title { font-size: 18px; font-weight: bold; color: var(--accent); flex: 1; }
-  .appbar .title .om { font-size: 22px; margin-right: 8px; }
-  .appbar .icon-btn { background: transparent; border: none; color: var(--text);
-    font-size: 20px; cursor: pointer; padding: 6px 10px; border-radius: 8px; width: auto; }
-  .appbar .icon-btn:hover { background: var(--panel2); }
-  .content { flex: 1; padding: 14px 16px; }
-  .top-tabs { display: flex; gap: 4px; padding: 4px 16px; background: var(--panel);
-    border-bottom: 1px solid var(--border); overflow-x: auto; position: sticky; top: 50px; z-index: 50; }
-  .top-tabs .tab-pill { padding: 10px 16px; cursor: pointer; background: transparent; border: none;
-    color: var(--muted); font-family: inherit; font-size: 14px; border-radius: 0;
-    border-bottom: 3px solid transparent; width: auto; white-space: nowrap; }
-  .top-tabs .tab-pill:hover { color: var(--text); }
-  .top-tabs .tab-pill.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
-  .top-tabs .tab-pill .ico { margin-right: 6px; }
-  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-    background: var(--panel); border-top: 1px solid var(--border); display: none;
-    align-items: stretch; justify-content: space-around;
-    padding: 4px 0 max(4px, env(safe-area-inset-bottom)); box-shadow: 0 -2px 8px rgba(0,0,0,0.15); }
-  .bottom-nav .nav-btn { flex: 1; background: transparent; border: none; padding: 6px 4px;
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-    color: var(--muted); font-family: inherit; cursor: pointer; width: auto; border-radius: 0; }
-  .bottom-nav .nav-btn .ico { font-size: 20px; }
-  .bottom-nav .nav-btn .lbl { font-size: 10px; }
-  .bottom-nav .nav-btn.active { color: var(--accent); }
+  .app-shell { max-width: 760px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 96px; }
+  @media (min-width: 900px) { .app-shell { max-width: 960px; } }
+  .appbar { position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    padding: 14px 20px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border); }
+  .appbar .title { font-family: 'Fraunces', serif; font-size: 19px; font-weight: 600; color: var(--text); flex: 1; letter-spacing: -0.02em; }
+  .appbar .title .om { color: var(--accent); margin-right: 6px; font-size: 22px; }
+  .appbar .icon-btn { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    cursor: pointer; width: 38px; height: 38px; padding: 0; border-radius: 12px;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-family: inherit;
+    transition: all 0.15s; }
+  .appbar .icon-btn:hover { background: var(--panel2); transform: translateY(-1px); }
+  .appbar .icon-btn:active { transform: scale(0.96); }
+  .appbar .icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .content { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+  /* Top tabs hidden — bottom nav is canonical on all viewports */
+  .top-tabs { display: none; }
+  /* Floating bottom navigation */
+  .bottom-nav { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px;
+    width: calc(100% - 32px); max-width: 460px; z-index: 100;
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+    border: 1px solid var(--border-strong); border-radius: 22px;
+    display: flex; padding: 6px; gap: 2px; box-shadow: var(--shadow-md); }
+  .bottom-nav .nav-btn { flex: 1; background: transparent; border: none; padding: 9px 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    color: var(--text-3); cursor: pointer; border-radius: 14px; font-family: inherit;
+    transition: all 0.15s; width: auto; }
+  .bottom-nav .nav-btn:hover { color: var(--text-2); background: var(--panel2); }
+  .bottom-nav .nav-btn.active { color: var(--accent); background: var(--accent-soft); }
+  .bottom-nav .nav-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .bottom-nav .nav-btn .lbl { font-size: 10px; font-weight: 500; letter-spacing: -0.01em; }
   .bottom-nav .nav-btn.active .lbl { font-weight: 600; }
-  @media (max-width: 768px) {
-    .top-tabs { display: none; }
-    .bottom-nav { display: flex; }
-    .content { padding: 12px 10px; }
-  }
+  @media (max-width: 768px) { .content { padding: 16px 14px; gap: 12px; } }
   /* Modal */
   .modal { position: fixed; inset: 0; z-index: 200; }
   .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.65); }
@@ -123,10 +137,103 @@
     color: var(--muted); font-family: inherit; font-size: 13px; border-radius: 16px; width: auto; white-space: nowrap; }
   .kundli-subnav .sub-tab:hover { color: var(--text); }
   .kundli-subnav .sub-tab.active { color: var(--accent); border-color: var(--accent); background: var(--panel2); font-weight: 600; }
-  /* Card refresh */
+  /* === Modern Vedic card system === */
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--card-radius);
-    padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
-  .info-cell { background: var(--panel2); padding: 10px 12px; border-radius: 8px; border-left: 3px solid var(--accent); }
+    padding: 20px; margin-bottom: 0; box-shadow: var(--shadow-sm); }
+  /* Hero panel for "today" type info */
+  .hero { position: relative; overflow: hidden; background: var(--hero-grad); border: 1px solid var(--border);
+    border-radius: 24px; padding: 26px 22px; box-shadow: var(--shadow-md); }
+  .hero::before { content: ''; position: absolute; inset: 0; background: var(--hero-overlay); pointer-events: none; }
+  .hero > * { position: relative; }
+  .hero .eyebrow { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent); margin-bottom: 6px; }
+  .hero .h-date { font-family: 'Fraunces', serif; font-size: 38px; font-weight: 500; line-height: 1.05; color: var(--text); letter-spacing: -0.03em; }
+  .hero .meta-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; }
+  .chip { font-size: 12px; font-weight: 500; padding: 5px 10px; background: var(--panel2);
+    border: 1px solid var(--border-strong); border-radius: 999px; color: var(--text-2); }
+  .chip.accent { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+  .chip.good { background: var(--good-soft); border-color: transparent; color: var(--good); }
+  .chip.bad { background: var(--bad-soft); border-color: transparent; color: var(--bad); }
+  .chip.warn { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
+  .hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-strong); }
+  .hero-stat .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-3); font-weight: 600; margin-bottom: 4px; }
+  .hero-stat .val { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 500; color: var(--text); letter-spacing: -0.02em; line-height: 1.15; }
+  .hero-stat .sub { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+
+  /* Section header */
+  .section-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em;
+    color: var(--text-3); font-weight: 600; padding: 4px 4px 0; display: flex; align-items: center; justify-content: space-between; }
+  .section-h .sub { font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11px; }
+
+  /* List-style card row */
+  .card-row { display: flex; align-items: center; gap: 14px; }
+  .card-row + .card-row { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .card-row .ic { flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .card-row .ic.good { background: var(--good-soft); color: var(--good); }
+  .card-row .ic.bad { background: var(--bad-soft); color: var(--bad); }
+  .card-row .ic.warn { background: var(--warn-soft); color: var(--warn); }
+  .card-row .ic svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .card-row .info { flex: 1; min-width: 0; }
+  .card-row .info .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); font-weight: 600; margin-bottom: 2px; }
+  .card-row .info .val { font-size: 14px; color: var(--text); font-weight: 500; }
+  .card-row .right { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;
+    color: var(--text-2); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .card-row .right.good { color: var(--good); }
+  .card-row .right.bad { color: var(--bad); }
+  .card-row .right.warn { color: var(--warn); }
+
+  /* Bento grid for stat tiles */
+  .bento { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .bento .tile { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+  .bento .tile .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); font-weight: 600; margin-bottom: 4px; }
+  .bento .tile .val { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 500; color: var(--text); letter-spacing: -0.01em; line-height: 1.2; }
+  .bento .tile .sub { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+
+  /* Choghadia strip */
+  .chog-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  @media (min-width: 600px) { .chog-strip { grid-template-columns: repeat(8, 1fr); } }
+  .chog-cell { padding: 10px 6px; border-radius: 12px; text-align: center; background: var(--panel2); border: 1px solid var(--border); }
+  .chog-cell.good { background: var(--good-soft); border-color: rgba(34,197,94,0.2); }
+  .chog-cell.bad { background: var(--bad-soft); border-color: rgba(239,68,68,0.2); }
+  .chog-cell.neutral { background: var(--warn-soft); border-color: rgba(245,158,11,0.2); }
+  .chog-cell .name { font-size: 11px; font-weight: 600; color: var(--text); }
+  .chog-cell .time { font-size: 9px; color: var(--text-2); margin-top: 2px; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+
+  /* Festival banner */
+  .festival { background: linear-gradient(135deg, var(--accent-soft), transparent);
+    border: 1px solid rgba(255,140,66,0.2); border-radius: 18px; padding: 16px 20px;
+    display: flex; align-items: center; gap: 14px; }
+  .festival .emoji { font-size: 26px; }
+  .festival .text { flex: 1; }
+  .festival .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent); font-weight: 700; }
+  .festival .name { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 500; color: var(--text); margin-top: 2px; }
+
+  /* Compass card for direction */
+  .compass-card { display: flex; gap: 20px; align-items: center; }
+  .compass-svg { width: 110px; height: 110px; flex-shrink: 0; }
+  .compass-text { flex: 1; min-width: 0; }
+  .compass-text .head { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); font-weight: 600; margin-bottom: 4px; }
+  .compass-text .primary { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 500; color: var(--good); letter-spacing: -0.02em; }
+  .compass-text .secondary { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+  .compass-text .avoid { display: inline-block; margin-top: 8px; padding: 4px 10px; background: var(--bad-soft); color: var(--bad); border-radius: 999px; font-size: 11px; font-weight: 500; }
+
+  /* Inputs + buttons */
+  input, select, button, textarea { font-family: 'Inter', inherit; }
+  input, select, textarea { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; font-size: 14px; width: 100%; transition: border-color 0.15s; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  button { background: var(--accent); color: white; border: none; border-radius: 10px; padding: 9px 16px;
+    font-size: 14px; font-weight: 500; cursor: pointer; letter-spacing: 0; transition: all 0.15s; width: auto; }
+  button:hover { background: var(--accent-2); transform: translateY(-1px); }
+  button:active { transform: scale(0.97); }
+  button.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  button.secondary:hover { background: var(--surface-3); }
+  button.ghost { background: transparent; color: var(--text-2); }
+  button.danger { background: var(--bad-soft); color: var(--bad); }
+  /* Legacy info-cell (used in many places) — keep but restyle to the new feel */
+  .info-cell { background: var(--panel2); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); border-left: none; }
+  .info-cell .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); font-weight: 600; margin-bottom: 3px; }
+  .info-cell .val { font-size: 14px; color: var(--text); font-weight: 500; }
   h1 {
     text-align: center;
     color: var(--accent);
@@ -322,21 +429,44 @@
 </head>
 <body>
 <div class="app-shell">
+  <!-- SVG icon library (used by appbar + bottom-nav + cards) -->
+  <svg width="0" height="0" style="position:absolute;" aria-hidden="true">
+    <defs>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+      <symbol id="i-planet" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><ellipse cx="12" cy="12" rx="11" ry="4" transform="rotate(-30 12 12)"/></symbol>
+      <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.5-.5-2-1-2.5-1.5-1.5-2-3.5-2-5C5 6 3 9 3 13a7 7 0 0 0 14 0c0-2.5-1.5-5-3-6.5"/></symbol>
+      <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></symbol>
+      <symbol id="i-sunrise" viewBox="0 0 24 24"><path d="M17 18a5 5 0 0 0-10 0M12 2v7M4.22 10.22l1.42 1.42M1 18h2M21 18h2M18.36 11.64l1.42-1.42M23 22H1M8 6l4-4 4 4"/></symbol>
+      <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93l14.14 14.14"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+      <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 4 13c0-2 1-4.5 2-6.5C7.5 4 9 3 12 3c4 0 8 4 8 8s-4 9-9 9zM2 22l8-8"/></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 2L13.5 8.5 20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5L12 2zM18 14l.5 2 2 .5-2 .5L18 19l-.5-2-2-.5 2-.5L18 14zM5 4l.5 2 2 .5-2 .5L5 9l-.5-2-2-.5 2-.5L5 4z"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+      <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+      <symbol id="i-translate" viewBox="0 0 24 24"><path d="M3 5h12M9 3v2M11 13l-3 6M11 13l3 6M5 7s4 6 6 6"/><path d="M14 15h7M19 13l2 7-2-4-2 4 2-7z"/></symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+    </defs>
+  </svg>
+
   <!-- APP BAR -->
   <header class="appbar">
-    <div class="title"><span class="om">卐</span><span id="appTitle">Kundli & Panchang</span></div>
-    <button class="icon-btn" id="langBtn" title="Toggle language" onclick="toggleLang()">अ</button>
-    <button class="icon-btn" id="themeBtn" title="Toggle theme" onclick="toggleTheme()">🌙</button>
+    <div class="title"><span class="om">卐</span><span id="appTitle">Kundli &amp; Panchang</span></div>
+    <button class="icon-btn" id="langBtn" title="Toggle language" onclick="toggleLang()"><svg><use href="#i-translate"/></svg></button>
+    <button class="icon-btn" id="themeBtn" title="Toggle theme" onclick="toggleTheme()"><svg><use href="#i-moon"/></svg></button>
+    <button class="icon-btn" title="Settings" onclick="navTo('settings')"><svg><use href="#i-gear"/></svg></button>
   </header>
 
-  <!-- TOP TABS (desktop) -->
-  <nav class="top-tabs" id="topTabs">
-    <button class="tab-pill active" data-nav="panchang"><span class="ico">📅</span><span data-lbl="Panchang">Panchang</span></button>
-    <button class="tab-pill" data-nav="kundli"><span class="ico">🪐</span><span data-lbl="Kundli">Kundli</span></button>
-    <button class="tab-pill" data-nav="muhurat"><span class="ico">🕉️</span><span data-lbl="Muhurat">Muhurat</span></button>
-    <button class="tab-pill" data-nav="match"><span class="ico">💞</span><span data-lbl="Milan">Milan</span></button>
-    <button class="tab-pill" data-nav="settings"><span class="ico">⚙️</span><span data-lbl="Settings">Settings</span></button>
-  </nav>
+  <nav class="top-tabs" id="topTabs"></nav>
 
   <!-- CONTENT -->
   <main class="content">
@@ -385,9 +515,10 @@
         <div id="tab-dasha" class="tab-content"></div>
         <div id="tab-transit" class="tab-content"></div>
       </section>
-      <section id="pane-muhurat" class="nav-pane"></section>
-      <section id="pane-match"   class="nav-pane"></section>
-      <section id="pane-settings" class="nav-pane"></section>
+      <section id="pane-muhurat"   class="nav-pane"></section>
+      <section id="pane-match"     class="nav-pane"></section>
+      <section id="pane-reminders" class="nav-pane"></section>
+      <section id="pane-settings"  class="nav-pane"></section>
     </div>
   </main>
 
@@ -399,13 +530,13 @@
     </div>
   </div>
 
-  <!-- BOTTOM NAV (mobile) -->
+  <!-- Floating bottom navigation -->
   <nav class="bottom-nav" id="bottomNav">
-    <button class="nav-btn active" data-nav="panchang"><span class="ico">📅</span><span class="lbl" data-lbl="Panchang">Panchang</span></button>
-    <button class="nav-btn" data-nav="kundli"><span class="ico">🪐</span><span class="lbl" data-lbl="Kundli">Kundli</span></button>
-    <button class="nav-btn" data-nav="muhurat"><span class="ico">🕉️</span><span class="lbl" data-lbl="Muhurat">Muhurat</span></button>
-    <button class="nav-btn" data-nav="match"><span class="ico">💞</span><span class="lbl" data-lbl="Milan">Milan</span></button>
-    <button class="nav-btn" data-nav="settings"><span class="ico">⚙️</span><span class="lbl" data-lbl="More">More</span></button>
+    <button class="nav-btn active" data-nav="panchang"><svg><use href="#i-calendar"/></svg><span class="lbl" data-lbl="Panchang">Panchang</span></button>
+    <button class="nav-btn" data-nav="kundli"><svg><use href="#i-planet"/></svg><span class="lbl" data-lbl="Kundli">Kundli</span></button>
+    <button class="nav-btn" data-nav="muhurat"><svg><use href="#i-flame"/></svg><span class="lbl" data-lbl="Muhurat">Muhurat</span></button>
+    <button class="nav-btn" data-nav="match"><svg><use href="#i-heart"/></svg><span class="lbl" data-lbl="Milan">Milan</span></button>
+    <button class="nav-btn" data-nav="reminders"><svg><use href="#i-bell"/></svg><span class="lbl" data-lbl="Reminders">Reminders</span></button>
   </nav>
 </div>
 
@@ -1434,6 +1565,7 @@ function navTo(dest) {
   if (dest === "panchang") renderPanchangPane();
   else if (dest === "muhurat") renderMuhuratPane();
   else if (dest === "match")   renderMatchTab();
+  else if (dest === "reminders") renderRemindersPane();
   else if (dest === "settings") renderSettings();
   // Kundli pane just shows whatever sub-tab is active
 }
@@ -1593,6 +1725,7 @@ function renderAllTabs() {
   renderMatchTab();
   renderCalendar();
   renderMuhuratPane();
+  renderRemindersPane();
   renderSettings();
   applyLanguage();
 }
@@ -2751,6 +2884,17 @@ function renderCalDay(date, tz) {
         <div class="val">${LANG==='hi'?f.hi:f.en}</div>
       </div>`).join("")}
     </div>` : "";
+  // Today's reminders (if any)
+  const matchedReminders = remindersForDate(date);
+  const remindersHtml = matchedReminders.length ? `
+    <div class="festival" style="margin-top:14px;">
+      <div class="emoji">🔔</div>
+      <div class="text">
+        <div class="label">Your reminders</div>
+        <div class="name">${matchedReminders.map(r=>escapeHtml(r.name)).join(" · ")}</div>
+        ${matchedReminders.filter(r=>r.message).map(r=>`<div class="small" style="color:var(--text-2);margin-top:4px;">${escapeHtml(r.message)}</div>`).join("")}
+      </div>
+    </div>` : "";
 
   // ---- Direction block (existing) ----
   const dirOrder = ["N","E","S","W"];
@@ -2846,6 +2990,7 @@ function renderCalDay(date, tz) {
       <div style="text-align:center;margin-top:10px;">
         <span class="badge bad">Avoid direction: ${DIR_NAME[info.blocked]} (${info.blocked}) — ${WEEKDAY_NAMES[info.weekday]} Disha Shool</span>
       </div>
+      ${remindersHtml}
       ${festHtml}
       ${yogasHtml}
       ${panchangHtml}
@@ -3037,20 +3182,22 @@ function toggleLang() {
 // ============================================================
 // THEME (light / dark)
 // ============================================================
+function updateThemeIcon(theme) {
+  const tb = document.getElementById("themeBtn"); if (!tb) return;
+  tb.innerHTML = theme === "dark" ? '<svg><use href="#i-moon"/></svg>' : '<svg><use href="#i-sun"/></svg>';
+}
 function toggleTheme() {
   const cur = document.documentElement.getAttribute("data-theme") || "dark";
   const next = cur === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("kundliTheme", next);
-  document.getElementById("themeBtn").textContent = next === "dark" ? "🌙" : "☀️";
+  updateThemeIcon(next);
 }
 (function initTheme() {
   const saved = localStorage.getItem("kundliTheme") ||
     (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
   document.documentElement.setAttribute("data-theme", saved);
-  const scheme = localStorage.getItem("kundliScheme") || "saffron";
-  document.documentElement.setAttribute("data-scheme", scheme);
-  const tb = document.getElementById("themeBtn"); if (tb) tb.textContent = saved === "dark" ? "🌙" : "☀️";
+  updateThemeIcon(saved);
 })();
 
 // ============================================================
@@ -3486,54 +3633,30 @@ function renderMuhuratYear(date) {
 // ============================================================
 // SETTINGS PANE
 // ============================================================
-const SCHEMES = [
-  {id:"saffron", name:"Saffron",    swatch:"#ff9933"},
-  {id:"blue",    name:"Royal Blue", swatch:"#4a90e2"},
-  {id:"green",   name:"Forest",     swatch:"#4caf50"},
-  {id:"maroon",  name:"Temple",     swatch:"#c0392b"},
-  {id:"slate",   name:"Slate",      swatch:"#607d8b"},
-  {id:"purple",  name:"Purple",     swatch:"#9c27b0"}
-];
-function currentScheme() { return document.documentElement.getAttribute("data-scheme") || "saffron"; }
-function setScheme(id) {
-  document.documentElement.setAttribute("data-scheme", id);
-  localStorage.setItem("kundliScheme", id);
-  renderSettings();
-}
-
 function renderSettings() {
   const cur = document.documentElement.getAttribute("data-theme") || "dark";
-  const sch = currentScheme();
   const partner = PARTNER_DATA ? PARTNER_DATA.input.name : null;
-  const schemesHtml = SCHEMES.map(s => `
-    <button onclick="setScheme('${s.id}')" style="width:auto;padding:6px 12px;margin:2px;display:inline-flex;align-items:center;gap:6px;border:2px solid ${sch===s.id?'var(--accent)':'transparent'};background:var(--panel2);color:var(--text);">
-      <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${s.swatch};"></span>
-      ${s.name}
-    </button>`).join("");
   let html = `
+    <div class="section-h">${t('Settings')}</div>
     <div class="card">
-      <h2 style="color:var(--accent);">${t('Settings')}</h2>
-      <div class="info-row" style="margin-top:14px;">
-        <div class="info-cell"><div class="lbl">${t('Theme')}</div>
-          <div class="val">
-            <button style="width:auto;padding:6px 14px;${cur==='dark'?'':'background:var(--panel2);color:var(--text);'}" onclick="setTheme('dark')">🌙 ${t('Dark')}</button>
-            <button style="width:auto;padding:6px 14px;margin-left:6px;${cur==='light'?'':'background:var(--panel2);color:var(--text);'}" onclick="setTheme('light')">☀️ ${t('Light')}</button>
+      <div class="bento">
+        <div class="tile"><div class="lbl">${t('Theme')}</div>
+          <div class="val" style="margin-top:6px;">
+            <button class="${cur==='dark'?'':'secondary'}" style="padding:6px 12px;" onclick="setTheme('dark')">🌙 ${t('Dark')}</button>
+            <button class="${cur==='light'?'':'secondary'}" style="padding:6px 12px;margin-left:4px;" onclick="setTheme('light')">☀️ ${t('Light')}</button>
           </div>
         </div>
-        <div class="info-cell" style="grid-column: span 2;"><div class="lbl">Color Scheme</div>
-          <div class="val" style="margin-top:4px;">${schemesHtml}</div>
-        </div>
-        <div class="info-cell"><div class="lbl">${t('Language')}</div>
-          <div class="val">
-            <button style="width:auto;padding:6px 14px;${LANG==='en'?'':'background:var(--panel2);color:var(--text);'}" onclick="setLang('en')">A ${t('English')}</button>
-            <button style="width:auto;padding:6px 14px;margin-left:6px;${LANG==='hi'?'':'background:var(--panel2);color:var(--text);'}" onclick="setLang('hi')">अ ${t('Hindi')}</button>
+        <div class="tile"><div class="lbl">${t('Language')}</div>
+          <div class="val" style="margin-top:6px;">
+            <button class="${LANG==='en'?'':'secondary'}" style="padding:6px 12px;" onclick="setLang('en')">A · ${t('English')}</button>
+            <button class="${LANG==='hi'?'':'secondary'}" style="padding:6px 12px;margin-left:4px;" onclick="setLang('hi')">अ · ${t('Hindi')}</button>
           </div>
         </div>
-        <div class="info-cell"><div class="lbl">${t('Ayanamsa')}</div><div class="val">Lahiri / Chitrapaksha</div></div>
-        <div class="info-cell"><div class="lbl">${t('Active Person')}</div>
-          <div class="val">
-            <button style="width:auto;padding:6px 14px;${ACTIVE_PERSON==='self'?'':'background:var(--panel2);color:var(--text);'}" onclick="switchActivePerson('self')">${SELF_DATA?SELF_DATA.input.name:'Self'}</button>
-            ${partner?`<button style="width:auto;padding:6px 14px;margin-left:6px;${ACTIVE_PERSON==='partner'?'':'background:var(--panel2);color:var(--text);'}" onclick="switchActivePerson('partner')">${partner}</button>`:'<span class="small">Run Milan to add partner.</span>'}
+        <div class="tile"><div class="lbl">${t('Ayanamsa')}</div><div class="val" style="margin-top:6px;">Lahiri · Chitrapaksha</div><div class="sub">Sidereal, fixed-star based</div></div>
+        <div class="tile"><div class="lbl">${t('Active Person')}</div>
+          <div class="val" style="margin-top:6px;">
+            <button class="${ACTIVE_PERSON==='self'?'':'secondary'}" style="padding:6px 12px;" onclick="switchActivePerson('self')">${SELF_DATA?SELF_DATA.input.name:'Self'}</button>
+            ${partner?`<button class="${ACTIVE_PERSON==='partner'?'':'secondary'}" style="padding:6px 12px;margin-left:4px;" onclick="switchActivePerson('partner')">${partner}</button>`:'<div class="sub">Run Milan to add partner.</div>'}
           </div>
         </div>
       </div>
@@ -3546,7 +3669,7 @@ function renderSettings() {
   `;
   document.getElementById("pane-settings").innerHTML = html;
 }
-function setTheme(t) { document.documentElement.setAttribute("data-theme", t); localStorage.setItem("kundliTheme", t); document.getElementById("themeBtn").textContent = t === "dark" ? "🌙" : "☀️"; renderSettings(); }
+function setTheme(t) { document.documentElement.setAttribute("data-theme", t); localStorage.setItem("kundliTheme", t); updateThemeIcon(t); renderSettings(); }
 function setLang(l) { LANG = l; localStorage.setItem("kundliLang", LANG); applyLanguage(); renderSettings(); }
 
 // ============================================================
@@ -3785,6 +3908,223 @@ function renderSavedProfilesCard() {
         : `<p class="small" style="margin-top:10px;font-style:italic;">No saved profiles yet — click + Save above.</p>`}
     </div>
   `;
+}
+
+// ============================================================
+// REMINDERS — condition-based notifications. Stored in localStorage.
+// A reminder triggers whenever today's panchang matches all its set
+// conditions (any null condition is "any"). Supports:
+//   - tithi (1..15 within paksha) + paksha (Shukla/Krishna/any)
+//   - vaar (weekday 0..6)
+//   - nakshatra (0..26)
+//   - hindu month (Chaitra...Phalguna)
+//   - gregorian month-day (MM-DD repeats yearly) or full YYYY-MM-DD (once)
+//   - yoga (0..26)
+//   - recurrence: 'repeat' (every match) or 'once' (auto-deactivate after fire)
+// ============================================================
+function loadReminders() { return loadJSON("kundliReminders") || []; }
+function saveReminders(arr) { saveJSON("kundliReminders", arr); }
+
+function reminderMatchesPanchang(r, pan, dateObj) {
+  if (!r.active) return false;
+  const wpTithi = (pan.tithiNum % 15) + 1;
+  if (r.tithi && r.tithi !== wpTithi) return false;
+  if (r.paksha && r.paksha !== "any" && r.paksha !== pan.paksha) return false;
+  if (r.vaar !== null && r.vaar !== undefined && r.vaar !== pan.weekday) return false;
+  if (r.nakshatra !== null && r.nakshatra !== undefined && r.nakshatra !== pan.nakshatra.idx) return false;
+  if (r.month && r.month !== pan.hinduMonth) return false;
+  if (r.yoga !== null && r.yoga !== undefined && r.yoga !== pan.yogaNum) return false;
+  if (r.date) {
+    const yyyymmdd = ymd(dateObj);
+    const mmdd = yyyymmdd.slice(5);
+    if (r.date.length === 10) { // YYYY-MM-DD exact
+      if (r.date !== yyyymmdd) return false;
+    } else if (r.date.length === 5) { // MM-DD recurring yearly
+      if (r.date !== mmdd) return false;
+    }
+  }
+  // At least one condition must be set (otherwise it'd fire every day)
+  const anyCondition = r.tithi || r.vaar !== null && r.vaar !== undefined || r.nakshatra !== null && r.nakshatra !== undefined || r.month || r.date || (r.yoga !== null && r.yoga !== undefined) || r.paksha === "Shukla" || r.paksha === "Krishna";
+  return anyCondition;
+}
+
+function remindersForDate(dateObj) {
+  if (!CURRENT) return [];
+  const tz = CURRENT.input.tz, lat = CURRENT.input.lat, lon = CURRENT.input.lon;
+  const pan = computePanchang(dateObj.getFullYear(), dateObj.getMonth()+1, dateObj.getDate(), lat, lon, tz);
+  return loadReminders().filter(r => reminderMatchesPanchang(r, pan, dateObj));
+}
+
+function renderRemindersPane() {
+  const reminders = loadReminders();
+  const today = new Date();
+  const todayMatches = remindersForDate(today);
+  let listHtml = "";
+  if (reminders.length === 0) {
+    listHtml = `<div class="card"><p style="color:var(--text-2);text-align:center;padding:20px;">No reminders yet. Tap "Add reminder" to create your first one.</p></div>`;
+  } else {
+    listHtml = reminders.map((r, i) => {
+      const matching = todayMatches.some(m => m.id === r.id);
+      const cond = describeReminder(r);
+      return `<div class="card">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <h3 style="font-family:'Inter';font-size:16px;font-weight:600;color:var(--text);margin:0;">${escapeHtml(r.name)}</h3>
+              ${matching ? `<span class="chip accent">Today</span>` : ""}
+              ${!r.active ? `<span class="chip">Paused</span>` : ""}
+            </div>
+            ${r.message ? `<p style="color:var(--text-2);font-size:13px;margin-top:6px;">${escapeHtml(r.message)}</p>` : ""}
+            <p style="color:var(--text-3);font-size:12px;margin-top:8px;">${cond}</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <button class="secondary" onclick="editReminder(${i})" style="padding:6px 10px;" title="Edit"><svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;"><use href="#i-edit"/></svg></button>
+            <button class="secondary" onclick="toggleReminderActive(${i})" style="padding:6px 10px;" title="${r.active?'Pause':'Resume'}">${r.active?'⏸':'▶'}</button>
+            <button class="danger" onclick="deleteReminder(${i})" style="padding:6px 10px;" title="Delete"><svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;"><use href="#i-trash"/></svg></button>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  const todayHtml = todayMatches.length > 0 ? `
+    <div class="festival">
+      <div class="emoji">🔔</div>
+      <div class="text">
+        <div class="label">Triggered today</div>
+        <div class="name">${todayMatches.map(r => escapeHtml(r.name)).join(", ")}</div>
+      </div>
+    </div>` : "";
+
+  document.getElementById("pane-reminders").innerHTML = `
+    <div class="section-h">Reminders <button onclick="openReminderEditor(null)" style="padding:6px 12px;display:inline-flex;align-items:center;gap:6px;"><svg style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;"><use href="#i-plus"/></svg> Add reminder</button></div>
+    ${todayHtml}
+    ${listHtml}
+  `;
+}
+
+function describeReminder(r) {
+  const parts = [];
+  if (r.tithi) {
+    const px = r.paksha && r.paksha !== "any" ? `${r.paksha} ` : "";
+    parts.push(`${px}Tithi ${r.tithi}`);
+  } else if (r.paksha && r.paksha !== "any") {
+    parts.push(r.paksha + " Paksha");
+  }
+  if (r.vaar !== null && r.vaar !== undefined) parts.push(WEEKDAY_NAMES[r.vaar]);
+  if (r.nakshatra !== null && r.nakshatra !== undefined) parts.push("Nak: " + NAKSHATRAS[r.nakshatra][0]);
+  if (r.month) parts.push(r.month);
+  if (r.yoga !== null && r.yoga !== undefined) parts.push("Yoga: " + YOGA_NAMES[r.yoga]);
+  if (r.date) parts.push("Date: " + r.date);
+  if (parts.length === 0) parts.push("(no conditions — would fire daily)");
+  return "When: " + parts.join(" · ");
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+let EDITING_REMINDER = null;  // index into reminders array, or null for new
+function openReminderEditor(idx) {
+  EDITING_REMINDER = idx;
+  const arr = loadReminders();
+  const r = (idx === null) ? { active: true, paksha: "any" } : arr[idx];
+  const opt = (val, label, selected) => `<option value="${val}" ${selected==val?'selected':''}>${label}</option>`;
+  const nakOpts = NAKSHATRAS.map((n,i) => opt(i, n[0], r.nakshatra)).join("");
+  const yogaOpts = YOGA_NAMES.map((y,i) => opt(i, y, r.yoga)).join("");
+  const monthOpts = HINDU_SOLAR_MONTH.map(m => `<option value="${m}" ${r.month===m?'selected':''}>${m}</option>`).join("");
+  const html = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <h3 style="flex:1;margin:0;">${idx === null ? 'New Reminder' : 'Edit Reminder'}</h3>
+      <button class="ghost" onclick="closeSavedModal()" style="padding:6px;"><svg style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;"><use href="#i-x"/></svg></button>
+    </div>
+    <p class="small" style="color:var(--text-2);margin-bottom:14px;">Set any combination of conditions. The reminder fires on days that match <b>all</b> set conditions. Leave a field empty/"Any" to skip that condition.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div style="grid-column:1/-1;"><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Name *</label>
+        <input id="rmName" value="${r.name?escapeHtml(r.name):''}" placeholder="Ekadashi Vrat" /></div>
+      <div style="grid-column:1/-1;"><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Message (optional)</label>
+        <input id="rmMsg" value="${r.message?escapeHtml(r.message):''}" placeholder="Fast today, no rice" /></div>
+
+      <div><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Paksha</label>
+        <select id="rmPaksha">
+          <option value="any" ${r.paksha==='any'||!r.paksha?'selected':''}>Any</option>
+          <option value="Shukla" ${r.paksha==='Shukla'?'selected':''}>Shukla (waxing)</option>
+          <option value="Krishna" ${r.paksha==='Krishna'?'selected':''}>Krishna (waning)</option>
+        </select></div>
+      <div><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Tithi (1–15)</label>
+        <select id="rmTithi"><option value="">Any</option>${Array.from({length:15}, (_,i) => opt(i+1, `${i+1} · ${TITHI_NAMES[i]}`, r.tithi)).join("")}</select></div>
+
+      <div><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Weekday</label>
+        <select id="rmVaar"><option value="">Any</option>${WEEKDAY_NAMES.map((w,i) => opt(i, w, r.vaar)).join("")}</select></div>
+      <div><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Nakshatra</label>
+        <select id="rmNak"><option value="">Any</option>${nakOpts}</select></div>
+
+      <div><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Hindu Month</label>
+        <select id="rmMonth"><option value="">Any</option>${monthOpts}</select></div>
+      <div><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Yoga</label>
+        <select id="rmYoga"><option value="">Any</option>${yogaOpts}</select></div>
+
+      <div style="grid-column:1/-1;"><label style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;">Gregorian Date (optional)</label>
+        <input id="rmDate" type="text" value="${r.date||''}" placeholder="YYYY-MM-DD for one-time, or MM-DD for every year" /></div>
+
+      <div style="grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:6px;">
+        ${idx !== null ? `<button class="danger" onclick="deleteReminderFromEditor()">Delete</button>` : ""}
+        <button class="secondary" onclick="closeSavedModal()">Cancel</button>
+        <button onclick="saveReminderFromEditor()">Save reminder</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("savedKundliModalBody").innerHTML = html;
+  document.getElementById("savedKundliModal").style.display = "block";
+}
+
+function saveReminderFromEditor() {
+  const name = document.getElementById("rmName").value.trim();
+  if (!name) { alert("Please give the reminder a name."); return; }
+  const get = id => { const v = document.getElementById(id).value; return v === "" ? null : v; };
+  const getInt = id => { const v = get(id); return v === null ? null : parseInt(v); };
+  const r = {
+    id: EDITING_REMINDER === null ? ("r" + Date.now()) : loadReminders()[EDITING_REMINDER].id,
+    name,
+    message: document.getElementById("rmMsg").value.trim(),
+    paksha:   document.getElementById("rmPaksha").value,
+    tithi:    getInt("rmTithi"),
+    vaar:     getInt("rmVaar"),
+    nakshatra: getInt("rmNak"),
+    month:    get("rmMonth"),
+    yoga:     getInt("rmYoga"),
+    date:     get("rmDate"),
+    active:   true,
+    createdAt: Date.now()
+  };
+  const arr = loadReminders();
+  if (EDITING_REMINDER === null) arr.push(r);
+  else arr[EDITING_REMINDER] = r;
+  saveReminders(arr);
+  closeSavedModal();
+  renderRemindersPane();
+}
+
+function editReminder(idx) { openReminderEditor(idx); }
+function deleteReminder(idx) {
+  const arr = loadReminders();
+  if (!confirm(`Delete "${arr[idx].name}"?`)) return;
+  arr.splice(idx, 1);
+  saveReminders(arr);
+  renderRemindersPane();
+}
+function deleteReminderFromEditor() {
+  if (EDITING_REMINDER === null) { closeSavedModal(); return; }
+  const arr = loadReminders();
+  if (!confirm(`Delete "${arr[EDITING_REMINDER].name}"?`)) return;
+  arr.splice(EDITING_REMINDER, 1);
+  saveReminders(arr);
+  closeSavedModal();
+  renderRemindersPane();
+}
+function toggleReminderActive(idx) {
+  const arr = loadReminders();
+  arr[idx].active = !arr[idx].active;
+  saveReminders(arr);
+  renderRemindersPane();
 }
 
 // ---------- INIT ----------
