@@ -3116,21 +3116,24 @@ const NAKSHATRA_VRIKSHA = [
   { tree: "Mahua" }                                                           // 26 Revati
 ];
 
-// Indexed by within-paksha tithi 1..13 (index 0..12). Tithis 14, 15 (and Krishna 15) not in this list.
+// Indexed by within-paksha tithi 1..15 (index 0..14). Tithis 14 (Chaturdashi)
+// and 15 (Purnima / Amavasya) traditionally proscribe dahi (curd).
 const TITHI_AVOID = [
-  { tithi:"Pratipada",  avoid:"Kaddu / petha (pumpkin, ash gourd)", reason:"Loss of wealth" },
-  { tithi:"Dwitiya",    avoid:"Baingan (brinjal)",                  variant:"Some sources also list kathal (jackfruit)" },
-  { tithi:"Tritiya",    avoid:"Parwal (pointed gourd)",             reason:"Increase in enemies" },
-  { tithi:"Chaturthi",  avoid:"Mooli (radish)",                     reason:"Loss of wealth" },
-  { tithi:"Panchami",   avoid:"Bel / bilva fruit",                  reason:"Brings disrepute" },
-  { tithi:"Shashthi",   avoid:"Neem (leaves, fruit, even datun)",   reason:"Leads to a lower birth" },
-  { tithi:"Saptami",    avoid:"Taad fruit (palm)",                  variant:"Some sources: khajur (dates)", reason:"Increases disease, harms the body" },
-  { tithi:"Ashtami",    avoid:"Nariyal (coconut)",                  reason:"Destroys intellect" },
-  { tithi:"Navami",     avoid:"Lauki (bottle gourd)",               reason:"Held equal to eating beef" },
-  { tithi:"Dashami",    avoid:"Kalambi (kalmi saag / water spinach)" },
-  { tithi:"Ekadashi",   avoid:"Sem ki phali (beans)",               variant:"Rice is also widely avoided on Ekadashi generally" },
-  { tithi:"Dwadashi",   avoid:"Poi / putika (Malabar spinach)" },
-  { tithi:"Trayodashi", avoid:"Baingan (brinjal)" }
+  { tithi:"Pratipada",   avoid:"Kaddu / petha (pumpkin, ash gourd)", reason:"Loss of wealth" },
+  { tithi:"Dwitiya",     avoid:"Baingan (brinjal)",                  variant:"Some sources also list kathal (jackfruit)" },
+  { tithi:"Tritiya",     avoid:"Parwal (pointed gourd)",             reason:"Increase in enemies" },
+  { tithi:"Chaturthi",   avoid:"Mooli (radish)",                     reason:"Loss of wealth" },
+  { tithi:"Panchami",    avoid:"Bel / bilva fruit",                  reason:"Brings disrepute" },
+  { tithi:"Shashthi",    avoid:"Neem (leaves, fruit, even datun)",   reason:"Leads to a lower birth" },
+  { tithi:"Saptami",     avoid:"Taad fruit (palm)",                  variant:"Some sources: khajur (dates)", reason:"Increases disease, harms the body" },
+  { tithi:"Ashtami",     avoid:"Nariyal (coconut)",                  reason:"Destroys intellect" },
+  { tithi:"Navami",      avoid:"Lauki (bottle gourd)",               reason:"Held equal to eating beef" },
+  { tithi:"Dashami",     avoid:"Kalambi (kalmi saag / water spinach)" },
+  { tithi:"Ekadashi",    avoid:"Sem ki phali (beans)",               variant:"Rice is also widely avoided on Ekadashi generally" },
+  { tithi:"Dwadashi",    avoid:"Poi / putika (Malabar spinach)" },
+  { tithi:"Trayodashi",  avoid:"Baingan (brinjal)" },
+  { tithi:"Chaturdashi", avoid:"Dahi (curd)" },
+  { tithi:"Purnima / Amavasya", avoid:"Dahi (curd)" }
 ];
 
 // Indexed by weekday 0=Sun..6=Sat
@@ -3162,7 +3165,7 @@ const MAAS_GUIDANCE = {
 
 function renderDietarySection(pan) {
   const wpTithi = (pan.tithiNum % 15) + 1;   // 1..15
-  const tithiData = (wpTithi <= 13) ? TITHI_AVOID[wpTithi - 1] : null;
+  const tithiData = TITHI_AVOID[wpTithi - 1] || null;
   const vaarData  = VAAR_AVOID[pan.weekday];
   const maasData  = MAAS_GUIDANCE[pan.hinduMonth];
   const nakData   = NAKSHATRA_VRIKSHA[pan.nakshatra.idx];
@@ -3180,18 +3183,13 @@ function renderDietarySection(pan) {
       <div class="small" style="margin-top:4px;">Tradition: plant and nurture this tree; avoid eating its produce or harming it. Strongest for your janma nakshatra.</div>
     </div>`;
   }
-  // Tithi
+  // Tithi — use actual tithi name from panchang (so Shukla 15 shows "Purnima", Krishna 15 shows "Amavasya")
   if (tithiData) {
     inner += `<div class="info-cell" style="border-left-color:var(--bad);margin-bottom:8px;">
-      <div class="lbl">${t('Tithi')} ${tithiData.tithi} — ${t('Avoid')}</div>
+      <div class="lbl">${t('Tithi')} ${t(pan.tithiName)} — ${t('Avoid')}</div>
       <div class="val" style="font-size:14px;">🚫 ${tithiData.avoid}</div>
       ${variantHtml(tithiData.variant)}
       ${reasonHtml(tithiData.reason)}
-    </div>`;
-  } else {
-    inner += `<div class="info-cell" style="margin-bottom:8px;">
-      <div class="lbl">${t('Tithi')} ${t(pan.tithiName)}</div>
-      <div class="small">No specific dietary avoidance from the Brahmavaivarta Purana list for Chaturdashi / Purnima / Amavasya.</div>
     </div>`;
   }
   // Vaar
@@ -3215,8 +3213,8 @@ function renderDietarySection(pan) {
     These notes come from traditional Hindu texts (Brahmavaivarta Purana and traditional dohas) and from classical Vedic astrology. They are presented as cultural and scriptural guidance — the texts frame them partly in health terms, but this is not clinical nutrition or medical advice. Regional traditions differ on several entries.
   </div>`;
 
-  return `<details style="margin-top:14px;">
-    <summary style="color:var(--accent);font-weight:600;">${t('Traditional Dietary Guidance')} ▾</summary>
+  return `<details open style="margin-top:14px;">
+    <summary style="color:var(--accent);font-weight:600;cursor:pointer;">${t('Traditional Dietary Guidance')}</summary>
     <div style="margin-top:10px;">${inner}${disclaimer}</div>
   </details>`;
 }
