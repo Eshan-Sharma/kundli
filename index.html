@@ -250,6 +250,31 @@
   button.secondary:hover { background: var(--surface-3); }
   button.ghost { background: transparent; color: var(--text-2); }
   button.danger { background: var(--bad-soft); color: var(--bad); }
+  /* Learn pane typography */
+  .learn-section { font-size: 14px; line-height: 1.6; color: var(--text); }
+  .learn-section p { margin: 8px 0; }
+  .learn-section ul, .learn-section ol { margin: 8px 0 8px 22px; }
+  .learn-section ul.learn-list, .learn-section ol.learn-list { padding-left: 4px; }
+  .learn-section li { margin: 4px 0; }
+  .learn-section h3, .learn-section h4 { color: var(--accent); margin: 10px 0 6px; font-family: 'Fraunces', serif; }
+  .learn-section summary { cursor: pointer; padding: 4px 0; list-style: none; }
+  .learn-section summary::-webkit-details-marker { display: none; }
+  .learn-section summary::after { content: ' ▸'; color: var(--text-3); }
+  .learn-section[open] summary::after { content: ' ▾'; }
+  .learn-section table { width: 100%; }
+  .learn-section table th, .learn-section table td { padding: 8px 10px; font-size: 13px; }
+  .learn-section table.learn-compact th, .learn-section table.learn-compact td { padding: 4px 6px; font-size: 11px; text-align: center; }
+  .learn-section blockquote.learn-verse {
+    margin: 12px 0; padding: 14px 16px;
+    background: var(--accent-soft); border-left: 3px solid var(--accent);
+    border-radius: 0 12px 12px 0;
+  }
+  .learn-section blockquote.learn-verse .san {
+    font-family: 'Noto Sans Devanagari', 'Mangal', serif; font-size: 15px;
+    line-height: 1.7; color: var(--text); margin-bottom: 8px;
+  }
+  .learn-section blockquote.learn-verse .tr { color: var(--text-2); font-size: 13px; line-height: 1.55; }
+
   /* Legacy info-cell (used in many places) — keep but restyle to the new feel */
   .info-cell { background: var(--panel2); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); border-left: none; }
   .info-cell .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); font-weight: 600; margin-bottom: 3px; }
@@ -476,6 +501,7 @@
       <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
       <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
       <symbol id="i-prashna" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
     </defs>
   </svg>
 
@@ -500,6 +526,12 @@
       </div>
       <div class="form-grid">
         <div><label data-lbl="Name">Name</label><input id="name1" type="text" value="Native" /></div>
+        <div><label data-lbl="Gender">Gender</label>
+          <select id="gender1" onchange="onGenderChanged('self')">
+            <option value="M">Male (boy)</option>
+            <option value="F">Female (girl)</option>
+          </select>
+        </div>
         <div><label data-lbl="Date of Birth">Date of Birth</label><input id="dob1" type="date" value="1995-06-15" /></div>
         <div><label data-lbl="Time of Birth">Time of Birth</label><input id="tob1" type="time" step="1" value="10:30:00" /></div>
         <div><label data-lbl="Place">Place</label><select id="city1"></select></div>
@@ -540,6 +572,7 @@
       <section id="pane-match"     class="nav-pane"></section>
       <section id="pane-prashna"   class="nav-pane"></section>
       <section id="pane-reminders" class="nav-pane"></section>
+      <section id="pane-learn"     class="nav-pane"></section>
       <section id="pane-settings"  class="nav-pane"></section>
     </div>
   </main>
@@ -560,6 +593,7 @@
     <button class="nav-btn" data-nav="prashna"><svg><use href="#i-prashna"/></svg><span class="lbl" data-lbl="Prashna">Prashna</span></button>
     <button class="nav-btn" data-nav="match"><svg><use href="#i-heart"/></svg><span class="lbl" data-lbl="Milan">Milan</span></button>
     <button class="nav-btn" data-nav="reminders"><svg><use href="#i-bell"/></svg><span class="lbl" data-lbl="Reminders">Reminders</span></button>
+    <button class="nav-btn" data-nav="learn"><svg><use href="#i-book"/></svg><span class="lbl" data-lbl="Learn">Learn</span></button>
   </nav>
 </div>
 
@@ -1251,6 +1285,21 @@ const YONI_ENEMY = {
 // Gana per nakshatra: D=Deva, M=Manushya, R=Rakshasa
 const GANA = ["D","M","R","M","D","M","D","D","R","R","M","M","D","R","D","R","D","R","R","M","M","D","R","R","M","M","D"];
 
+// === Long-form names for the Guna Milan table ===
+const VARNA_FULL = { "B":"Brahmin", "K":"Kshatriya", "V":"Vaishya", "S":"Shudra" };
+const VASHYA_FULL = { "chatuspad":"Chatuspad", "manushya":"Manushya", "jalachara":"Jalachara",
+                      "vanachara":"Vanachara", "keeta":"Keeta" };
+const GANA_FULL  = { "D":"Deva", "M":"Manushya", "R":"Rakshasa" };
+const NADI_FULL  = { "A":"Adi", "M":"Madhya", "E":"Antya" };
+// Tara names 1..9 (Janma, Sampat, Vipat, Kshema, Pratyari, Sadhaka, Vadha, Mitra, Ati-mitra)
+const TARA_FULL  = ["", "Janma", "Sampat", "Vipat", "Kshema", "Pratyari", "Sadhaka", "Vadha", "Mitra", "Ati-mitra"];
+function taraName(remainder) { return TARA_FULL[remainder === 0 ? 9 : remainder]; }
+// Area-of-life labels for the table column (matching common Vedic-matchmaking sites)
+const KOOTA_AREA = {
+  Varna:"Work", Vashya:"Dominance", Tara:"Destiny", Yoni:"Mentality",
+  "Graha Maitri":"Compatibility", Gana:"Guna Level", Bhakoot:"Love", Nadi:"Health"
+};
+
 // Graha Maitri based on Moon sign lords
 const PLANET_FRIEND_MAP = {
   "Su":{f:["Mo","Ma","Ju"],n:["Me"],e:["Ve","Sa"]},
@@ -1296,9 +1345,69 @@ function ashtakoot(boy, girl) {
 
   const total = varnaPts + vashyaPts + taraPts + yoniPts + ghPts + ganaPts + bhakootPts + nadiPts;
 
+  // Tara name computation (which named Tara the partner falls into from your perspective)
+  const taraNumBoyFromGirl = ((boy.nakIdx - girl.nakIdx + 27) % 27) + 1;   // count from girl's nakshatra to boy's
+  const taraNumGirlFromBoy = ((girl.nakIdx - boy.nakIdx + 27) % 27) + 1;   // count from boy's nakshatra to girl's
+
+  // Bhakoot distance forward (1..12) — for the rules section
+  const bhakootDiffFwd = ((girl.moonSign - boy.moonSign + 12) % 12) + 1;
+
+  // Build per-koota Boy/Girl category strings + rule description (for the calculation table)
+  const categories = {
+    Varna: {
+      boy:  VARNA_FULL[bV],
+      girl: VARNA_FULL[gV],
+      rule: `Boy's varna rank ≥ Girl's → 1, else 0. Ranks: Brahmin 4 > Kshatriya 3 > Vaishya 2 > Shudra 1.`,
+      result: `Boy(${VARNA_FULL[bV]}=${VARNA_RANK[bV]}) ${VARNA_RANK[bV]>=VARNA_RANK[gV]?'≥':'<'} Girl(${VARNA_FULL[gV]}=${VARNA_RANK[gV]}) → ${varnaPts}/1`
+    },
+    Vashya: {
+      boy:  VASHYA_FULL[VASHYA[boy.moonSign]] || VASHYA[boy.moonSign],
+      girl: VASHYA_FULL[VASHYA[girl.moonSign]] || VASHYA[girl.moonSign],
+      rule: `Same Vashya category → 2; specific friendly pair → 1; else 0. Categories: Chatuspad, Manushya, Jalachara, Vanachara, Keeta.`,
+      result: `Boy: ${VASHYA_FULL[VASHYA[boy.moonSign]]}, Girl: ${VASHYA_FULL[VASHYA[girl.moonSign]]} → ${vashyaPts}/2`
+    },
+    Tara: {
+      boy:  taraName(taraNumBoyFromGirl % 9),
+      girl: taraName(taraNumGirlFromBoy % 9),
+      rule: `Count nakshatras from one's janma to the other (1-based); take mod 9. Tara position 3 (Vipat), 5 (Pratyari), or 7 (Vadha) → 0; else 1.5. Sum both directions = 3 max.`,
+      result: `Boy's tara (from Girl): ${taraName(taraNumBoyFromGirl%9)} (${taraNumBoyFromGirl%9||9}) · Girl's tara (from Boy): ${taraName(taraNumGirlFromBoy%9)} (${taraNumGirlFromBoy%9||9}) → ${taraPts}/3`
+    },
+    Yoni: {
+      boy:  YONI[boy.nakIdx],
+      girl: YONI[girl.nakIdx],
+      rule: `Same yoni → 4; friendly pair → 3; neutral → 2; declared enemy pair → 0. 14 yonis assigned per nakshatra.`,
+      result: `Boy: ${YONI[boy.nakIdx]}, Girl: ${YONI[girl.nakIdx]} → ${yoniPts}/4`
+    },
+    "Graha Maitri": {
+      boy:  PLANET_FULL[SIGN_LORDS[boy.moonSign]],
+      girl: PLANET_FULL[SIGN_LORDS[girl.moonSign]],
+      rule: `Compare Moon-sign lords. Same planet → 5. Mutual friend → 4. Friend↔neutral → 3. Mutual neutral → 2. Friend↔enemy → 1. Mutual enemy → 0.`,
+      result: `Lords: ${PLANET_FULL[SIGN_LORDS[boy.moonSign]]} & ${PLANET_FULL[SIGN_LORDS[girl.moonSign]]} → ${ghPts}/5`
+    },
+    Gana: {
+      boy:  GANA_FULL[GANA[boy.nakIdx]],
+      girl: GANA_FULL[GANA[girl.nakIdx]],
+      rule: `Deva–Deva / Man–Man / Rak–Rak → 6. Deva↔Manushya → 5. Manushya↔Rakshasa → 1. Deva↔Rakshasa → 0.`,
+      result: `Boy: ${GANA_FULL[GANA[boy.nakIdx]]}, Girl: ${GANA_FULL[GANA[girl.nakIdx]]} → ${ganaPts}/6`
+    },
+    Bhakoot: {
+      boy:  SIGNS[boy.moonSign],
+      girl: SIGNS[girl.moonSign],
+      rule: `Moon-sign distance. If ${bhakootDiffFwd === 1 || bhakootDiffFwd === 12 || bhakootDiffFwd === 2 || bhakootDiffFwd === 5 || bhakootDiffFwd === 9 || bhakootDiffFwd === 6 || bhakootDiffFwd === 8 ? "" : "any of "}2/12 (Dwirdwadasha) · 5/9 (Nava-Pancham) · 6/8 (Shadashtaka) → 0. All other distances → 7.`,
+      result: `Boy: ${SIGNS[boy.moonSign]}, Girl: ${SIGNS[girl.moonSign]} — Girl is ${bhakootDiffFwd}th sign from Boy → ${bhakootPts}/7`
+    },
+    Nadi: {
+      boy:  NADI_FULL[NADI[boy.nakIdx]],
+      girl: NADI_FULL[NADI[girl.nakIdx]],
+      rule: `Different Nadi → 8. Same Nadi → 0 (one of the heaviest doshas). Binary, no middle ground.`,
+      result: `Boy: ${NADI_FULL[NADI[boy.nakIdx]]}, Girl: ${NADI_FULL[NADI[girl.nakIdx]]} → ${nadiPts}/8`
+    }
+  };
+
   return {
     points: {Varna: [varnaPts,1], Vashya:[vashyaPts,2], Tara:[taraPts,3], Yoni:[yoniPts,4],
              "Graha Maitri":[ghPts,5], Gana:[ganaPts,6], Bhakoot:[bhakootPts,7], Nadi:[nadiPts,8]},
+    categories,
     total,
     doshas: {
       Gana:    analyzeGana(boy, girl, ganaPts),
@@ -1592,6 +1701,7 @@ function navTo(dest) {
   else if (dest === "match")   renderMatchTab();
   else if (dest === "prashna") renderPrashnaPane();
   else if (dest === "reminders") renderRemindersPane();
+  else if (dest === "learn") renderLearnPane();
   else if (dest === "settings") renderSettings();
   // Kundli pane just shows whatever sub-tab is active
 }
@@ -1614,13 +1724,15 @@ function getInput(prefix = "1") {
   const lon = parseFloat(document.getElementById("lon"+prefix).value);
   const tz = parseFloat(document.getElementById("tz"+prefix).value);
   const name = (document.getElementById("name"+prefix) || {}).value || "Native";
+  const genderEl = document.getElementById("gender"+prefix);
+  const gender = genderEl ? genderEl.value : "M";
   if (!dob || !tob) return null;
   const [y,m,d] = dob.split("-").map(Number);
   const [hh,mm,ss] = tob.split(":").map(Number);
   const localHour = hh + (mm || 0)/60 + (ss || 0)/3600;
   const utHour = localHour - tz;
   const jd = julianDay(y, m, d, utHour);
-  return { name, year:y, month:m, day:d, hour:localHour, tz, lat, lon, jd };
+  return { name, gender, year:y, month:m, day:d, hour:localHour, tz, lat, lon, jd };
 }
 
 // ---------- CHART DRAWING (North Indian Diamond Style) ----------
@@ -2172,8 +2284,11 @@ function updateTransit() {
 function renderMatchTab() {
   // Pre-fill the partner form with PARTNER_DATA if it already exists (so switching person doesn't lose it).
   const p = PARTNER_DATA ? PARTNER_DATA.input : null;
+  // Default partner gender = opposite of Self (if known), else "F"
+  const selfG = (SELF_DATA && SELF_DATA.input && SELF_DATA.input.gender) || "M";
   const def = {
     name: p ? p.name : "Partner",
+    gender: p ? (p.gender || (selfG === "M" ? "F" : "M")) : (selfG === "M" ? "F" : "M"),
     dob:  p ? `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}` : "1996-09-22",
     tob:  p ? `${String(Math.floor(p.hour)).padStart(2,'0')}:${String(Math.floor((p.hour%1)*60)).padStart(2,'0')}:${String(Math.floor(((p.hour*60)%1)*60)).padStart(2,'0')}` : "14:00:00",
     lat:  p ? p.lat : 19.0760,
@@ -2190,6 +2305,12 @@ function renderMatchTab() {
       </div>
       <div class="form-grid">
         <div><label>Partner Name</label><input id="nameG" type="text" value="${def.name}"/></div>
+        <div><label>Gender</label>
+          <select id="genderG" onchange="onGenderChanged('partner')">
+            <option value="M" ${def.gender==='M'?'selected':''}>Male (boy)</option>
+            <option value="F" ${def.gender==='F'?'selected':''}>Female (girl)</option>
+          </select>
+        </div>
         <div><label>Date of Birth</label><input id="dobG" type="date" value="${def.dob}" /></div>
         <div><label>Time</label><input id="tobG" type="time" step="1" value="${def.tob}" /></div>
         <div><label>Place</label><select id="cityG"></select></div>
@@ -2275,7 +2396,18 @@ function renderSideBySide(self, partner) {
 }
 
 function runMatch() {
+  // === FRESH RECOMPUTE on every click ===
+  // Self: re-read birth form → rebuild SELF_DATA (positions, dasha, shadbala) → save.
+  // Partner: re-read partner form → rebuild PARTNER_DATA. Then re-run ashtakoot.
+  // All Kundli sub-tabs are also re-rendered so they reflect the fresh Self chart.
+  const freshSelfInput = getInput("1");
+  if (!freshSelfInput) { alert("Please complete the Self birth details first."); return; }
+  SELF_DATA = buildPersonData(freshSelfInput);
+  if (ACTIVE_PERSON === "self") CURRENT = SELF_DATA;
+  saveSelfInput(freshSelfInput);
+
   const nameG = document.getElementById("nameG").value || "Partner";
+  const genderG = (document.getElementById("genderG")||{value:"F"}).value;
   const dobG = document.getElementById("dobG").value;
   const tobG = document.getElementById("tobG").value;
   const latG = parseFloat(document.getElementById("latG").value);
@@ -2287,7 +2419,7 @@ function runMatch() {
   const localHour = hh + (mm||0)/60 + (ss||0)/3600;
   const utHour = localHour - tzG;
   const jd = julianDay(y, m, d, utHour);
-  const partnerInput = { name: nameG, year:y, month:m, day:d, hour: localHour, tz: tzG, lat: latG, lon: lonG, jd };
+  const partnerInput = { name: nameG, gender: genderG, year:y, month:m, day:d, hour: localHour, tz: tzG, lat: latG, lon: lonG, jd };
 
   // Build full partner chart (positions, dasha, shadbala) so it can be viewed as a full kundli.
   PARTNER_DATA = buildPersonData(partnerInput);
@@ -2295,17 +2427,34 @@ function runMatch() {
   const inpG = partnerInput;
   const pG = PARTNER_DATA.positions;
 
-  // Build koota data for both — A is always SELF, B is always PARTNER
+  // Build koota data for both natives
   const A = SELF_DATA.positions;
   const aMoonSign = Math.floor(A.Mo.sidereal / 30);
   const aNak = nakshatraOf(A.Mo.sidereal);
   const aData = { moonLongSid: A.Mo.sidereal, moonSign: aMoonSign, nakIdx: aNak.idx, nakPada: aNak.pada };
-
   const bMoonSign = Math.floor(pG.Mo.sidereal / 30);
   const bNak = nakshatraOf(pG.Mo.sidereal);
   const bData = { moonLongSid: pG.Mo.sidereal, moonSign: bMoonSign, nakIdx: bNak.idx, nakPada: bNak.pada };
 
-  const result = ashtakoot(aData, bData);
+  // === Determine who is "boy" and who is "girl" based on gender, read LIVE from forms
+  // so changes to either gender select take effect without re-running Generate Kundli.
+  // Ashtakoot is asymmetric for Varna (boy rank ≥ girl rank) and for Tara (counted both
+  // directions). The actual male in the pair is the "boy"; the female is the "girl".
+  // If both genders are the same, Self is treated as the boy.
+  const selfGenderEl    = document.getElementById("gender1");
+  const partnerGenderEl = document.getElementById("genderG");
+  const selfGender   = selfGenderEl    ? selfGenderEl.value    : (SELF_DATA.input.gender || "M");
+  const partnerGender = partnerGenderEl ? partnerGenderEl.value : (inpG.gender || "F");
+  // Keep cached data in sync so anything else that reads it stays consistent.
+  if (SELF_DATA && SELF_DATA.input) SELF_DATA.input.gender = selfGender;
+  partnerInput.gender = partnerGender;
+  const selfIsBoy = (selfGender === "M") || (selfGender === partnerGender);
+  const boyData    = selfIsBoy ? aData : bData;
+  const girlData   = selfIsBoy ? bData : aData;
+  const boyName    = selfIsBoy ? SELF_DATA.input.name : inpG.name;
+  const girlName   = selfIsBoy ? inpG.name : SELF_DATA.input.name;
+
+  const result = ashtakoot(boyData, girlData);
 
   // Refresh the header switcher so user can jump to partner's full kundli
   renderPersonSwitcher();
@@ -2331,23 +2480,45 @@ function runMatch() {
       <div class="small">${result.total >= 18 ? "Acceptable match (≥18 considered favourable)" : "Below 18 — match needs careful examination"}</div>
     </div>
     <div class="scroll-x"><table class="koota-table">
-      <thead><tr><th>Koota</th><th>Points</th><th>Out of</th><th>Notes</th></tr></thead>
+      <thead><tr>
+        <th>Guna</th>
+        <th>${escapeHtml(boyName)} (boy)</th>
+        <th>${escapeHtml(girlName)} (girl)</th>
+        <th>Max</th>
+        <th>Obtained</th>
+        <th>Area of Life</th>
+      </tr></thead>
       <tbody>`;
-  const notes = {
-    "Varna":"Spiritual/work compatibility (Brahmin > Kshatriya > Vaishya > Shudra)",
-    "Vashya":"Mutual control / dominance",
-    "Tara":"Health, longevity & destiny compatibility",
-    "Yoni":"Sexual & instinctive compatibility (via animal symbols)",
-    "Graha Maitri":"Friendship of Moon-sign lords (mental compatibility)",
-    "Gana":"Temperament: Deva, Manushya, Rakshasa",
-    "Bhakoot":"Family welfare, prosperity (Moon-sign distance)",
-    "Nadi":"Health & progeny (Adi/Madhya/Antya)"
-  };
   for (const k of Object.keys(result.points)) {
     const [p, max] = result.points[k];
-    html += `<tr><td><b>${k}</b></td><td>${p}</td><td>${max}</td><td class="small">${notes[k]}</td></tr>`;
+    const c = result.categories[k] || { boy:"—", girl:"—" };
+    const obtainedCls = p === max ? 'style="color:var(--good);font-weight:600;"' : p === 0 ? 'style="color:var(--bad);font-weight:600;"' : 'style="color:var(--warn);font-weight:600;"';
+    html += `<tr>
+      <td style="color:var(--accent);font-weight:600;">${k}</td>
+      <td>${escapeHtml(String(c.boy))}</td>
+      <td>${escapeHtml(String(c.girl))}</td>
+      <td class="mono">${max}</td>
+      <td class="mono" ${obtainedCls}>${p}</td>
+      <td class="small">${KOOTA_AREA[k] || ''}</td>
+    </tr>`;
   }
   html += `</tbody></table></div>`;
+
+  // === Collapsible Calculation Rules ===
+  html += `<details style="margin-top:14px;">
+    <summary style="cursor:pointer;color:var(--accent);font-weight:600;padding:8px 0;">Show calculation rules used ▾</summary>
+    <div class="card" style="margin-top:8px;">
+      <p class="small" style="color:var(--text-2);margin-bottom:12px;">The rule applied for each Guna, followed by the values used in this chart. Sources: Brihat Parashara Hora Shastra (BPHS), classical Muhurta texts. Asymmetric rules use the gender you set on each form.</p>
+      ${Object.keys(result.points).map(k => {
+        const c = result.categories[k] || {};
+        return `<div class="info-cell" style="margin-bottom:8px;border-left:3px solid var(--accent);">
+          <div class="lbl">${k} · ${KOOTA_AREA[k] || ''}</div>
+          <div class="small" style="margin-top:4px;color:var(--text-2);"><b>Rule:</b> ${c.rule || ''}</div>
+          <div class="small mono" style="margin-top:4px;color:var(--text);"><b>This chart:</b> ${c.result || ''}</div>
+        </div>`;
+      }).join("")}
+    </div>
+  </details>`;
 
   // Dosha cards
   html += `<h3 style="color:var(--accent);margin-top:20px;">Dosha Analysis</h3>
@@ -2396,6 +2567,25 @@ function runMatch() {
   }
 
   document.getElementById("matchResult").innerHTML = html;
+
+  // Refresh every Kundli sub-tab + Panchang/Muhurat panes that depend on SELF_DATA
+  // (we explicitly DON'T call renderMatchTab — that would recurse and re-fire runMatch).
+  // The Milan tab itself is already fully re-rendered above (matchResult innerHTML).
+  try {
+    renderPersonSwitcher();
+    renderOverview();
+    renderRashi();
+    renderNavamsa();
+    renderMoon();
+    renderDivisional();
+    renderShadbala();
+    renderDasha();
+    renderTransit();
+    renderPanchangPane();
+    renderMuhuratPane();
+    renderRemindersPane();
+    renderSettings();
+  } catch(e) { console.warn("Post-match refresh:", e); }
 }
 
 // Renders the full block of a dosha card: rule description, chart-specific
@@ -3274,7 +3464,7 @@ let LANG = localStorage.getItem("kundliLang") || "en";   // "en" | "hi"
 
 const I18N = {
   // App chrome
-  "Panchang":{hi:"पंचांग"},"Kundli":{hi:"कुंडली"},"Muhurat":{hi:"मुहूर्त"},"Travel":{hi:"दिशा"},"Milan":{hi:"मिलान"},"Settings":{hi:"सेटिंग्स"},"More":{hi:"और"},
+  "Panchang":{hi:"पंचांग"},"Kundli":{hi:"कुंडली"},"Muhurat":{hi:"मुहूर्त"},"Travel":{hi:"दिशा"},"Milan":{hi:"मिलान"},"Settings":{hi:"सेटिंग्स"},"More":{hi:"और"},"Learn":{hi:"सीखें"},"Prashna":{hi:"प्रश्न"},"Reminders":{hi:"रिमाइंडर"},
   "Birth Details":{hi:"जन्म विवरण"},"Name":{hi:"नाम"},"Date of Birth":{hi:"जन्म तिथि"},"Time of Birth":{hi:"जन्म समय"},"Place":{hi:"स्थान"},"Latitude":{hi:"अक्षांश"},"Longitude":{hi:"देशांतर"},"Timezone":{hi:"समय क्षेत्र"},"Generate Kundli":{hi:"कुंडली बनाएँ"},
   // Panchang labels
   "Tithi":{hi:"तिथि"},"Nakshatra":{hi:"नक्षत्र"},"Yoga":{hi:"योग"},"Karana":{hi:"करण"},"Vaar":{hi:"वार"},"Paksha":{hi:"पक्ष"},"Hindu Month":{hi:"मास"},"Ritu":{hi:"ऋतु"},"Moon Sign":{hi:"चंद्र राशि"},"Sun Sign":{hi:"सूर्य राशि"},
@@ -3875,6 +4065,7 @@ function saveProfiles(arr)     { saveJSON("kundliProfiles", arr); }
 function populateSelfForm(inp) {
   if (!inp) return;
   document.getElementById("name1").value = inp.name || "Native";
+  const ge = document.getElementById("gender1"); if (ge) ge.value = inp.gender || "M";
   document.getElementById("dob1").value  = `${inp.year}-${String(inp.month).padStart(2,'0')}-${String(inp.day).padStart(2,'0')}`;
   const h = Math.floor(inp.hour);
   const m = Math.floor((inp.hour - h) * 60);
@@ -3914,6 +4105,23 @@ function deleteProfileAndRefresh(idx) {
 }
 
 // Read partner-form values without computing (for save before match)
+// Triggered when either gender select changes. Re-runs the match so Boy/Girl roles
+// (which drive Varna's rank-comparison and Tara's direction) update instantly.
+function onGenderChanged(which) {
+  if (which === "self" && SELF_DATA) {
+    const v = (document.getElementById("gender1")||{}).value || "M";
+    SELF_DATA.input.gender = v;
+    saveSelfInput(SELF_DATA.input);
+  }
+  if (which === "partner" && PARTNER_DATA) {
+    const v = (document.getElementById("genderG")||{}).value || "F";
+    PARTNER_DATA.input.gender = v;
+    savePartnerInput(PARTNER_DATA.input);
+  }
+  // Re-run match only if a partner is loaded (both forms have data)
+  if (SELF_DATA && PARTNER_DATA) runMatch();
+}
+
 function readPartnerFormInput() {
   const dob = document.getElementById("dobG"); if (!dob || !dob.value) return null;
   const tob = document.getElementById("tobG"); if (!tob || !tob.value) return null;
@@ -3923,8 +4131,10 @@ function readPartnerFormInput() {
   const lat = parseFloat(document.getElementById("latG").value);
   const lon = parseFloat(document.getElementById("lonG").value);
   const localHour = hh + (mm||0)/60 + ((ss||0))/3600;
+  const ge = document.getElementById("genderG");
   return {
     name: (document.getElementById("nameG").value || "Partner"),
+    gender: ge ? ge.value : "F",
     year: y, month: m, day: d, hour: localHour, tz, lat, lon,
     jd: julianDay(y, m, d, localHour - tz)
   };
@@ -3933,6 +4143,7 @@ function readPartnerFormInput() {
 function populatePartnerForm(inp) {
   if (!inp) return;
   document.getElementById("nameG").value = inp.name || "Partner";
+  const ge = document.getElementById("genderG"); if (ge) ge.value = inp.gender || "F";
   document.getElementById("dobG").value  = `${inp.year}-${String(inp.month).padStart(2,'0')}-${String(inp.day).padStart(2,'0')}`;
   const h = Math.floor(inp.hour);
   const m = Math.floor((inp.hour - h) * 60);
@@ -5413,6 +5624,411 @@ function renderMoonAndAfflictions(s) {
       <div class="eyebrow">Trik-house occupants (6 · 8 · 12)</div>
       ${trikOccupants.map(o => `<div class="card-row"><div class="ic warn"><svg><use href="#i-ban"/></svg></div><div class="info"><div class="val">${PLANET_FULL[o.p]} in ${o.house}H</div><div class="small" style="color:var(--text-2);">House of dispute / sudden change / loss — note for the matter in question.</div></div></div>`).join("")}
     </div>` : ""}`;
+}
+
+// ============================================================
+// LEARN — classical reference content (Ashtakoota Guna Milan).
+// ============================================================
+
+// Tara cycle rotation — the standard table assumes Ashwini = Janma (index 0).
+// User can pick any of the 27 nakshatras as the cycle start; the 9-Tara grid
+// rotates accordingly. The cycle is purely positional (Janma · Sampat · Vipat ·
+// Kshema · Pratyari · Sadhaka · Vadha · Mitra · Ati-Mitra), so a shift of N just
+// adds N modulo 27 to every cell.
+const TARA_LABELS = [
+  { name:"Janma",    san:"जन्म",                 nature:"Body — caution" },
+  { name:"Sampat",   san:"सम्पत्",                nature:"Wealth — <b>auspicious</b>" },
+  { name:"Vipat",    san:"विपत्",                 nature:"Danger — <b>malefic</b>" },
+  { name:"Kshema",   san:"क्षेम",                 nature:"Prosperity — <b>auspicious</b>" },
+  { name:"Pratyari", san:"प्रत्यरि",              nature:"Obstacle — <b>malefic</b>" },
+  { name:"Sadhaka",  san:"साधक",                 nature:"Achievement — <b>auspicious</b>" },
+  { name:"Vadha",    san:"वध / नैधन",             nature:"Destruction — <b>malefic</b>" },
+  { name:"Mitra",    san:"मित्र",                 nature:"Friend — <b>auspicious</b>" },
+  { name:"Ati-Mitra",san:"अतिमित्र / परम मित्र",  nature:"Best friend — <b>auspicious</b>" },
+];
+
+function renderLearnTaraTable(startIdx) {
+  // startIdx = nakshatra index (0..26) chosen as Janma.
+  let html = `<table><thead><tr><th>#</th><th>Tara</th><th>Sanskrit</th><th>Nature</th><th>Cycle 1</th><th>Cycle 2</th><th>Cycle 3</th></tr></thead><tbody>`;
+  for (let t = 0; t < 9; t++) {
+    const c1 = NAKSHATRAS[(startIdx + t) % 27][0];
+    const c2 = NAKSHATRAS[(startIdx + 9  + t) % 27][0];
+    const c3 = NAKSHATRAS[(startIdx + 18 + t) % 27][0];
+    const isStart = (t === 0);
+    html += `<tr${isStart ? ' style="background:var(--accent-soft);"' : ''}>
+      <td>${t+1}</td>
+      <td><b>${TARA_LABELS[t].name}</b></td>
+      <td>${TARA_LABELS[t].san}</td>
+      <td>${TARA_LABELS[t].nature}</td>
+      <td>${c1}</td><td>${c2}</td><td>${c3}</td>
+    </tr>`;
+  }
+  html += `</tbody></table>`;
+  return html;
+}
+
+function learnTaraStart(idx) {
+  const wrap = document.getElementById("taraTableWrap");
+  if (wrap) wrap.innerHTML = renderLearnTaraTable(idx);
+}
+
+function renderLearnPane() {
+  document.getElementById("pane-learn").innerHTML = `
+    <div class="hero">
+      <div class="eyebrow">Learn</div>
+      <div class="h-date display" style="font-size:28px;">Ashtakoota Guna Milan</div>
+      <p class="small" style="color:var(--text-2);margin-top:8px;line-height:1.55;">A working reference to the eight <i>kootas</i> of Vedic horoscope matching: what each one measures, the full nakshatra/rashi classification behind it, how points are awarded, and the classical Sanskrit basis where it can be quoted reliably.</p>
+    </div>
+
+    <div class="card learn-section">
+      <div class="section-h">0 · The system at a glance</div>
+      <p><i>Ashtakoota</i> (अष्टकूट, "eight aspects") matching, also called <i>Guna Milan</i>, compares the <b>Moon</b> of the bride and groom — their Moon sign (<i>rashi</i>) and Moon nakshatra (<i>janma nakshatra</i>). The Lagna/ascendant is <i>not</i> used here, because the Moon governs <i>manas</i> (mind and emotion), which is what marriage compatibility is judged on. The eight kootas carry a graded weight totalling <b>36 points</b> (<i>guna</i>).</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>#</th><th>Koota</th><th>Sanskrit</th><th>Max</th><th>Judges</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Varna</td><td>वर्ण</td><td>1</td><td>Ego, work-temperament, spiritual grade</td></tr>
+          <tr><td>2</td><td>Vashya</td><td>वश्य</td><td>2</td><td>Mutual control, attraction, who yields</td></tr>
+          <tr><td>3</td><td>Tara / Dina</td><td>तारा / दिन</td><td>3</td><td>Health, longevity, destiny, well-being</td></tr>
+          <tr><td>4</td><td>Yoni</td><td>योनि</td><td>4</td><td>Physical/sexual compatibility, instinct</td></tr>
+          <tr><td>5</td><td>Graha Maitri</td><td>ग्रहमैत्री</td><td>5</td><td>Mental affinity, intellect, friendship</td></tr>
+          <tr><td>6</td><td>Gana</td><td>गण</td><td>6</td><td>Temperament, character, conduct</td></tr>
+          <tr><td>7</td><td>Bhakoot / Rashi</td><td>भकूट / राशि</td><td>7</td><td>Family welfare, wealth, emotional flow</td></tr>
+          <tr><td>8</td><td>Nadi</td><td>नाडी</td><td>8</td><td>Physiology, genes, health of progeny</td></tr>
+        </tbody>
+      </table></div>
+      <p>The classical authorities for this scheme are the <i>muhurta</i> (electional) and <i>samhita</i> texts — principally <b>Muhurta Chintamani</b> (Daivajna Rama, 16th c.) in its <i>Vivaha Prakarana</i>, the <b>Narada Samhita</b>, <b>Jyotirnibandha</b>, <b>Brihat Jyotisarnava</b> and similar compendia. Exact verse wording varies between recensions and editions; the verses quoted below in Devanagari are given in their commonly reproduced form.</p>
+      <p>A practical note before the details: classical texts themselves warn that Guna Milan is a <i>first filter</i>, not a verdict. The individual charts (longevity, 7th house, Venus, Mars/Manglik status, dasha sequence) and mutual house overlays carry as much or more weight than the 36-point score.</p>
+    </div>
+
+    <details class="card learn-section" open>
+      <summary><span class="section-h" style="display:inline;padding:0;">1 · Varna Koota — वर्ण (1 point)</span></summary>
+      <p><b>What it measures.</b> <i>Varna</i> here is a technical astrological category derived purely from the <b>Moon's rashi</b> — it is not a person's social caste. It indicates the grade of ego, the natural work-temperament, and spiritual orientation. Four varnas are ranked: Brahmin (highest) → Kshatriya → Vaishya → Shudra.</p>
+      <p><b>Classification — by Moon sign (the authoritative method):</b></p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Varna</th><th>Element (<i>tattva</i>)</th><th>Moon signs</th></tr></thead>
+        <tbody>
+          <tr><td>Brahmin (ब्राह्मण)</td><td>Water (जल)</td><td>Cancer, Scorpio, Pisces</td></tr>
+          <tr><td>Kshatriya (क्षत्रिय)</td><td>Fire (अग्नि)</td><td>Aries, Leo, Sagittarius</td></tr>
+          <tr><td>Vaishya (वैश्य)</td><td>Air (वायु)</td><td>Gemini, Libra, Aquarius</td></tr>
+          <tr><td>Shudra (शूद्र)</td><td>Earth (पृथ्वी)</td><td>Taurus, Virgo, Capricorn</td></tr>
+        </tbody>
+      </table></div>
+      <p>(Some traditions also derive Varna directly from the nakshatra, which yields more than four classes; standard Ashtakoota uses the rashi method above. To go from a nakshatra to its rashi, use the nakshatra→rashi table in the Appendix.)</p>
+      <p><b>Matching rule.</b> The groom's varna should be <b>equal to or higher than</b> the bride's. If so → <b>1 point</b>; if the bride's varna is higher → <b>0</b>.</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Bride ↓ \\ Groom →</th><th>Brahmin</th><th>Kshatriya</th><th>Vaishya</th><th>Shudra</th></tr></thead>
+        <tbody>
+          <tr><td><b>Brahmin</b></td><td>1</td><td>0</td><td>0</td><td>0</td></tr>
+          <tr><td><b>Kshatriya</b></td><td>1</td><td>1</td><td>0</td><td>0</td></tr>
+          <tr><td><b>Vaishya</b></td><td>1</td><td>1</td><td>1</td><td>0</td></tr>
+          <tr><td><b>Shudra</b></td><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+        </tbody>
+      </table></div>
+      <p><b>Note on the sample report you have:</b> both being Kshatriya is a same-varna match → 1/1, which is why that report calls it "good in all respects."</p>
+      <p>A 0 in Varna is considered the <i>mildest</i> of all defects and is routinely set aside if the rest of the chart is sound. A classical verse assigns each varna-group its own "operative" dosha:</p>
+      <blockquote class="learn-verse">
+        <div class="san">नाडीदोषोऽस्ति विप्राणां वर्णदोषोऽस्ति भूभुजाम् ।<br>वैश्यानां गणदोषः स्यात् शूद्राणां योनिदूषणम् ॥</div>
+        <div class="tr"><i>"Nadi-dosha tells chiefly for Brahmins, Varna-dosha for Kshatriyas (rulers), Gana-dosha for Vaishyas, and Yoni-dosha for Shudras."</i></div>
+      </blockquote>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">2 · Vashya Koota — वश्य (2 points)</span></summary>
+      <p><b>What it measures.</b> <i>Vashya</i> means "control / amenability." It shows the natural power balance — who instinctively yields to whom, and how readily the two can be "won over" by each other. Based on the <b>Moon's rashi</b>, grouped into five animal/being categories.</p>
+      <p><b>Classification — by Moon sign:</b></p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Vashya group</th><th>Sanskrit</th><th>Moon signs</th></tr></thead>
+        <tbody>
+          <tr><td>Quadruped</td><td>Chatushpada (चतुष्पद)</td><td>Aries, Taurus, 2nd half of Sagittarius, 1st half of Capricorn</td></tr>
+          <tr><td>Human / Biped</td><td>Dwipada / Manava / Nara (द्विपद / मानव)</td><td>Gemini, Virgo, Libra, Aquarius, 1st half of Sagittarius</td></tr>
+          <tr><td>Aquatic</td><td>Jalachara (जलचर)</td><td>Cancer, Pisces, 2nd half of Capricorn</td></tr>
+          <tr><td>Wild animal</td><td>Vanachara / Vanchar (वनचर)</td><td>Leo</td></tr>
+          <tr><td>Insect</td><td>Keeta (कीट)</td><td>Scorpio</td></tr>
+        </tbody>
+      </table></div>
+      <p>(A simplified variant — used by some software — does not split Sagittarius or Capricorn and treats Leo and Scorpio simply as their own categories. The table above is the widely taught classical form.)</p>
+      <p><b>Matching.</b> Same group → full <b>2</b>. The general principle: where one category naturally "preys on" or overpowers the other, points drop sharply; mutually neutral or friendly groups get partial points. One commonly used scoring matrix:</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Bride ↓ \\ Groom →</th><th>Quadruped</th><th>Human</th><th>Aquatic</th><th>Wild (Leo)</th><th>Insect (Scorpio)</th></tr></thead>
+        <tbody>
+          <tr><td><b>Quadruped</b></td><td>2</td><td>1</td><td>1</td><td>0</td><td>1</td></tr>
+          <tr><td><b>Human</b></td><td>0</td><td>2</td><td>1</td><td>1</td><td>1</td></tr>
+          <tr><td><b>Aquatic</b></td><td>1</td><td>1</td><td>2</td><td>1</td><td>1</td></tr>
+          <tr><td><b>Wild (Leo)</b></td><td>0</td><td>0</td><td>0</td><td>2</td><td>0</td></tr>
+          <tr><td><b>Insect (Scorpio)</b></td><td>1</td><td>1</td><td>1</td><td>0</td><td>2</td></tr>
+        </tbody>
+      </table></div>
+      <p>Vashya is the koota with the <b>most variation between authorities</b> — different texts and software give slightly different sub-values (0, 0.5, 1, 1.5). Treat the principle (same = full, predator/prey = nil) as fixed and the fractional values as edition-dependent. "Vanchar–Vanchar" in your sample report is a same-group match → full 2 points.</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">3 · Tara / Dina Koota — तारा / दिन (3 points)</span></summary>
+      <p><b>What it measures.</b> <i>Tara</i> ("star") judges health, longevity, fortune and mutual well-being. It is reckoned by <b>counting nakshatras</b> from one partner's janma nakshatra to the other's. The 27 nakshatras cycle through <b>9 Taras</b>, three times over.</p>
+      <p><b>The 9 Taras and their nakshatras:</b></p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <label class="small" style="color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;">Start cycle from</label>
+        <select onchange="learnTaraStart(parseInt(this.value))" style="width:auto;min-width:160px;font-size:13px;">
+          ${NAKSHATRAS.map((nk, i) => `<option value="${i}">${i+1}. ${nk[0]}</option>`).join("")}
+        </select>
+        <span class="small" style="color:var(--text-3);">— pick any nakshatra as Janma; the rest of the 9-Tara cycle rotates accordingly.</span>
+      </div>
+      <div class="scroll-x" id="taraTableWrap">${renderLearnTaraTable(0)}</div>
+      <p>The malefic Taras are the <b>3rd (Vipat), 5th (Pratyari), and 7th (Vadha)</b>. The 1st (Janma) is treated as neutral-to-cautionary.</p>
+      <p><b>Calculation rule.</b></p>
+      <ol class="learn-list">
+        <li>Count from the <b>groom's</b> nakshatra to the <b>bride's</b> (inclusive); divide the count by 9; note the remainder.</li>
+        <li>If the remainder is <b>3, 5, or 7</b> → that direction scores 0; any other remainder → 1.5.</li>
+        <li>Repeat counting from the <b>bride's</b> nakshatra to the <b>groom's</b>; same rule, again worth 1.5.</li>
+        <li>Total Tara score = sum of the two directions: <b>0, 1.5, or 3</b>.</li>
+      </ol>
+      <p>In the sample report, "boy = Janma tara, girl = Vipat tara" means one direction landed on a malefic Tara — hence the "normal, not excellent" verdict and a reduced score.</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">4 · Yoni Koota — योनि (4 points)</span></summary>
+      <p><b>What it measures.</b> <i>Yoni</i> judges instinctive, physical and sexual compatibility. Each nakshatra is assigned one of <b>14 animal symbols</b>; each yoni has a "male" and a "female" nakshatra (28 slots, using Abhijit as the 28th).</p>
+      <p><b>The 14 Yonis and their nakshatras:</b></p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Yoni (Sanskrit)</th><th>English</th><th>Male nakshatra</th><th>Female nakshatra</th><th>Natural enemy</th></tr></thead>
+        <tbody>
+          <tr><td>Ashwa (अश्व)</td><td>Horse</td><td>Ashwini</td><td>Shatabhisha</td><td>Buffalo</td></tr>
+          <tr><td>Gaja (गज)</td><td>Elephant</td><td>Bharani</td><td>Revati</td><td>Lion</td></tr>
+          <tr><td>Mesha (मेष)</td><td>Sheep / Goat</td><td>Pushya</td><td>Krittika</td><td>Monkey</td></tr>
+          <tr><td>Sarpa (सर्प)</td><td>Serpent</td><td>Rohini</td><td>Mrigashira</td><td>Mongoose</td></tr>
+          <tr><td>Shwan (श्वान)</td><td>Dog</td><td>Mula</td><td>Ardra</td><td>Deer</td></tr>
+          <tr><td>Marjara (मार्जार)</td><td>Cat</td><td>Ashlesha</td><td>Punarvasu</td><td>Rat / Mouse</td></tr>
+          <tr><td>Mushaka (मूषक)</td><td>Rat / Mouse</td><td>Magha</td><td>Purva Phalguni</td><td>Cat</td></tr>
+          <tr><td>Gau (गौ)</td><td>Cow</td><td>Uttara Phalguni</td><td>Uttara Bhadrapada</td><td>Tiger</td></tr>
+          <tr><td>Mahisha (महिष)</td><td>Buffalo</td><td>Swati</td><td>Hasta</td><td>Horse</td></tr>
+          <tr><td>Vyaghra (व्याघ्र)</td><td>Tiger</td><td>Vishakha</td><td>Chitra</td><td>Cow</td></tr>
+          <tr><td>Mriga (मृग)</td><td>Deer / Hare</td><td>Jyeshtha</td><td>Anuradha</td><td>Dog</td></tr>
+          <tr><td>Vanara (वानर)</td><td>Monkey</td><td>Purva Ashadha</td><td>Shravana</td><td>Sheep</td></tr>
+          <tr><td>Simha (सिंह)</td><td>Lion</td><td>Purva Bhadrapada</td><td>Dhanishta</td><td>Elephant</td></tr>
+          <tr><td>Nakula (नकुल)</td><td>Mongoose</td><td>Uttara Ashadha</td><td>Abhijit</td><td>Serpent</td></tr>
+        </tbody>
+      </table></div>
+      <p><b>The 7 mutually inimical pairs</b> (a match between these is the lowest, 0 points): Horse ↔ Buffalo, Elephant ↔ Lion, Sheep ↔ Monkey, Serpent ↔ Mongoose, Dog ↔ Deer, Cat ↔ Rat, Cow ↔ Tiger.</p>
+      <p><b>Scoring scale:</b> Same yoni → <b>4</b>; friendly → <b>3</b>; neutral → <b>2</b>; unfriendly → <b>1</b>; mutual enemies → <b>0</b>.</p>
+      <p><b>Full 14 × 14 Yoni compatibility matrix</b> (read bride's yoni down the side, groom's across the top):</p>
+      <div class="scroll-x"><table class="learn-compact">
+        <thead><tr><th>Bride ↓ \\ Groom →</th><th>Horse</th><th>Eleph</th><th>Sheep</th><th>Serp</th><th>Dog</th><th>Cat</th><th>Rat</th><th>Cow</th><th>Buff</th><th>Tiger</th><th>Deer</th><th>Monk</th><th>Mong</th><th>Lion</th></tr></thead>
+        <tbody>
+          <tr><td><b>Horse</b></td><td>4</td><td>2</td><td>2</td><td>3</td><td>2</td><td>2</td><td>2</td><td>1</td><td>0</td><td>1</td><td>3</td><td>3</td><td>2</td><td>1</td></tr>
+          <tr><td><b>Elephant</b></td><td>2</td><td>4</td><td>3</td><td>3</td><td>2</td><td>2</td><td>2</td><td>2</td><td>3</td><td>1</td><td>2</td><td>3</td><td>2</td><td>0</td></tr>
+          <tr><td><b>Sheep</b></td><td>2</td><td>3</td><td>4</td><td>2</td><td>1</td><td>2</td><td>1</td><td>3</td><td>3</td><td>1</td><td>2</td><td>0</td><td>3</td><td>1</td></tr>
+          <tr><td><b>Serpent</b></td><td>3</td><td>3</td><td>2</td><td>4</td><td>2</td><td>1</td><td>1</td><td>1</td><td>1</td><td>2</td><td>2</td><td>2</td><td>0</td><td>2</td></tr>
+          <tr><td><b>Dog</b></td><td>2</td><td>2</td><td>1</td><td>2</td><td>4</td><td>2</td><td>1</td><td>2</td><td>2</td><td>1</td><td>0</td><td>2</td><td>1</td><td>1</td></tr>
+          <tr><td><b>Cat</b></td><td>2</td><td>2</td><td>2</td><td>1</td><td>2</td><td>4</td><td>0</td><td>2</td><td>2</td><td>1</td><td>3</td><td>3</td><td>2</td><td>1</td></tr>
+          <tr><td><b>Rat</b></td><td>2</td><td>2</td><td>1</td><td>1</td><td>1</td><td>0</td><td>4</td><td>2</td><td>2</td><td>2</td><td>2</td><td>2</td><td>1</td><td>2</td></tr>
+          <tr><td><b>Cow</b></td><td>1</td><td>2</td><td>3</td><td>1</td><td>2</td><td>2</td><td>2</td><td>4</td><td>3</td><td>0</td><td>3</td><td>2</td><td>2</td><td>1</td></tr>
+          <tr><td><b>Buffalo</b></td><td>0</td><td>3</td><td>3</td><td>1</td><td>2</td><td>2</td><td>2</td><td>3</td><td>4</td><td>1</td><td>2</td><td>2</td><td>2</td><td>1</td></tr>
+          <tr><td><b>Tiger</b></td><td>1</td><td>1</td><td>1</td><td>2</td><td>1</td><td>1</td><td>2</td><td>0</td><td>1</td><td>4</td><td>1</td><td>1</td><td>2</td><td>1</td></tr>
+          <tr><td><b>Deer</b></td><td>1</td><td>2</td><td>2</td><td>2</td><td>0</td><td>3</td><td>2</td><td>3</td><td>2</td><td>1</td><td>4</td><td>2</td><td>2</td><td>1</td></tr>
+          <tr><td><b>Monkey</b></td><td>3</td><td>3</td><td>0</td><td>2</td><td>2</td><td>3</td><td>2</td><td>2</td><td>2</td><td>1</td><td>2</td><td>4</td><td>3</td><td>2</td></tr>
+          <tr><td><b>Mongoose</b></td><td>2</td><td>2</td><td>3</td><td>0</td><td>1</td><td>2</td><td>1</td><td>2</td><td>2</td><td>2</td><td>2</td><td>3</td><td>4</td><td>2</td></tr>
+          <tr><td><b>Lion</b></td><td>1</td><td>0</td><td>1</td><td>2</td><td>1</td><td>1</td><td>2</td><td>1</td><td>2</td><td>1</td><td>1</td><td>2</td><td>2</td><td>4</td></tr>
+        </tbody>
+      </table></div>
+      <p>"Moosak (Rat) – Moosak (Rat)" in the sample report is a same-yoni match → full 4 points.</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">5 · Graha Maitri Koota — ग्रहमैत्री (5 points)</span></summary>
+      <p><b>What it measures.</b> Also called <i>Rashyadhipati</i> matching. It judges mental affinity, intellect and friendship by comparing the <b>lords of the two Moon rashis</b> and their natural (<i>naisargika</i>) friendship.</p>
+      <p><b>Rashi lords:</b></p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Rashi</th><th>Lord</th><th>Rashi</th><th>Lord</th></tr></thead>
+        <tbody>
+          <tr><td>Aries / Scorpio</td><td>Mars</td><td>Libra / Taurus</td><td>Venus</td></tr>
+          <tr><td>Gemini / Virgo</td><td>Mercury</td><td>Cancer</td><td>Moon</td></tr>
+          <tr><td>Leo</td><td>Sun</td><td>Sagittarius / Pisces</td><td>Jupiter</td></tr>
+          <tr><td>Capricorn / Aquarius</td><td>Saturn</td><td></td><td></td></tr>
+        </tbody>
+      </table></div>
+      <p><b>Natural planetary friendships (Parashari):</b></p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Planet</th><th>Friends</th><th>Neutral</th><th>Enemies</th></tr></thead>
+        <tbody>
+          <tr><td>Sun</td><td>Moon, Mars, Jupiter</td><td>Mercury</td><td>Venus, Saturn</td></tr>
+          <tr><td>Moon</td><td>Sun, Mercury</td><td>Mars, Jupiter, Venus, Saturn</td><td>—</td></tr>
+          <tr><td>Mars</td><td>Sun, Moon, Jupiter</td><td>Venus, Saturn</td><td>Mercury</td></tr>
+          <tr><td>Mercury</td><td>Sun, Venus</td><td>Mars, Jupiter, Saturn</td><td>Moon</td></tr>
+          <tr><td>Jupiter</td><td>Sun, Moon, Mars</td><td>Saturn</td><td>Mercury, Venus</td></tr>
+          <tr><td>Venus</td><td>Mercury, Saturn</td><td>Mars, Jupiter</td><td>Sun, Moon</td></tr>
+          <tr><td>Saturn</td><td>Mercury, Venus</td><td>Jupiter</td><td>Sun, Moon, Mars</td></tr>
+        </tbody>
+      </table></div>
+      <p><b>Scoring</b> — compare lord-of-bride's-rashi with lord-of-groom's-rashi (the relationship can be asymmetric, e.g. Sun is friend to Mercury but Mercury is enemy to Moon, so check both directions):</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Relationship between the two lords</th><th>Points</th></tr></thead>
+        <tbody>
+          <tr><td>Same lord, <b>or</b> mutual friends</td><td>5</td></tr>
+          <tr><td>One friend, one neutral</td><td>4</td></tr>
+          <tr><td>Both neutral</td><td>3</td></tr>
+          <tr><td>One friend, one enemy</td><td>2</td></tr>
+          <tr><td>One neutral, one enemy</td><td>1 (some texts 0.5)</td></tr>
+          <tr><td>Mutual enemies</td><td>0</td></tr>
+        </tbody>
+      </table></div>
+      <p>In the sample report both partners have the Sun as rashi-lord (both Moon in Leo) → same lord → full 5 points.</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">6 · Gana Koota — गण (6 points)</span></summary>
+      <p><b>What it measures.</b> <i>Gana</i> judges temperament, conduct and overall character. The 27 nakshatras split into <b>3 Ganas</b>.</p>
+      <p><b>The 3 Ganas and their nakshatras:</b></p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Gana</th><th>Sanskrit</th><th>Nature</th><th>Nakshatras</th></tr></thead>
+        <tbody>
+          <tr><td>Deva</td><td>देव</td><td>Divine — gentle, refined, generous</td><td>Ashwini, Mrigashira, Punarvasu, Pushya, Hasta, Swati, Anuradha, Shravana, Revati</td></tr>
+          <tr><td>Manushya</td><td>मनुष्य / मनुज</td><td>Human — mixed, ambitious, sociable</td><td>Bharani, Rohini, Ardra, Purva Phalguni, Uttara Phalguni, Purva Ashadha, Uttara Ashadha, Purva Bhadrapada, Uttara Bhadrapada</td></tr>
+          <tr><td>Rakshasa</td><td>राक्षस</td><td>Demonic — forceful, self-willed, intense</td><td>Krittika, Ashlesha, Magha, Chitra, Vishakha, Jyeshtha, Mula, Dhanishta, Shatabhisha</td></tr>
+        </tbody>
+      </table></div>
+      <p><b>Matching matrix</b> (bride's gana down the side, groom's across the top — note it is <b>asymmetric</b>):</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Bride ↓ \\ Groom →</th><th>Deva</th><th>Manushya</th><th>Rakshasa</th></tr></thead>
+        <tbody>
+          <tr><td><b>Deva</b></td><td>6</td><td>6</td><td>0</td></tr>
+          <tr><td><b>Manushya</b></td><td>5</td><td>6</td><td>0</td></tr>
+          <tr><td><b>Rakshasa</b></td><td>1</td><td>0</td><td>6</td></tr>
+        </tbody>
+      </table></div>
+      <p><b>Gana Dosha</b> arises chiefly when one partner is <b>Deva/Manushya and the other Rakshasa</b> — and is considered most severe when the <b>bride</b> is Rakshasa and the <b>groom</b> is Deva. In the sample report (boy Manushya, girl Rakshasa) the score is 0, which is why it flags arguments and dominance struggles.</p>
+      <p><b>Cancellation (<i>parihara</i>) of Gana Dosha</b> — traditionally the defect is treated as nullified if:</p>
+      <ul class="learn-list">
+        <li>the lords of the two Moon rashis are <b>friends</b>, or are the <b>same</b> planet; or</li>
+        <li>the <i>navamsha</i> lords of the two rashis differ; or</li>
+        <li>the couple have the <b>same Moon rashi</b> (even with different nakshatras); or</li>
+        <li>there is a clean Bhakoot (no Rashi-dosha) — a sound Bhakoot is said to absorb Gana-dosha on its own.</li>
+      </ul>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">7 · Bhakoot / Rashi Koota — भकूट / राशि (7 points)</span></summary>
+      <p><b>What it measures.</b> <i>Bhakoot</i> (also <i>Rashi Koota</i>) judges family welfare, wealth, emotional flow and overall household harmony. It compares the <b>mutual positions of the two Moon rashis</b> — counting how many signs one Moon sits from the other, in both directions.</p>
+      <p><b>Rule.</b> Count the position of each rashi from the other. If the pair falls into <b>2/12, 5/9, or 6/8</b> → <b>0 points (Bhakoot Dosha)</b>. Any other mutual position → <b>7 points</b>.</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Quality</th><th>Points</th><th>Mutual rashi positions</th></tr></thead>
+        <tbody>
+          <tr><td>Auspicious</td><td>7</td><td>1, 3, 4, 7, 10, 11 (e.g. 1–1, 3–11, 4–10, 7–7)</td></tr>
+          <tr><td>Dosha</td><td>0</td><td>2nd/12th, 5th/9th, 6th/8th</td></tr>
+        </tbody>
+      </table></div>
+      <p><b>The three Bhakoot doshas:</b></p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Dosha</th><th>Position</th><th>Traditionally indicates</th></tr></thead>
+        <tbody>
+          <tr><td>Dwirdwadasha (द्विर्द्वादश)</td><td>2 / 12</td><td>Strain on wealth and finances</td></tr>
+          <tr><td>Nava-Pancham (नवपञ्चम)</td><td>5 / 9</td><td>Difficulty regarding children / progeny</td></tr>
+          <tr><td>Shadashtak (षडष्टक)</td><td>6 / 8</td><td>Health problems, friction, even danger</td></tr>
+        </tbody>
+      </table></div>
+      <p><b>Cancellation (<i>parihara</i>) of Bhakoot Dosha</b> — classically the defect is set aside when:</p>
+      <ul class="learn-list">
+        <li>the <b>lord of both Moon rashis is the same planet</b> (e.g. Aries &amp; Scorpio, both Mars; Taurus &amp; Libra, both Venus); or</li>
+        <li>the two rashi-lords are <b>mutual friends</b>; or</li>
+        <li>there is <b>Tara-shuddhi</b> (a clean Tara/Dina koota) and <b>rashi strength</b>; or</li>
+        <li>for Shadashtak specifically: a <b>"friendly Shadashtak"</b> (Aries–Scorpio, Taurus–Libra, Gemini–Capricorn, Cancer–Sagittarius, Leo–Pisces, Virgo–Aquarius) is treated as benign, whereas an <b>"enemy Shadashtak"</b> (Aries–Virgo, Taurus–Sagittarius, Gemini–Scorpio, Cancer–Aquarius, Leo–Capricorn, Libra–Pisces) should be rejected.</li>
+      </ul>
+      <p>A widely repeated caution: if <b>Nadi Dosha and a Shadashtak Bhakoot Dosha occur together</b>, the match is rejected outright regardless of total score.</p>
+      <p>The sample report's "excellent sign combination" means the two Moon signs fall in one of the favourable mutual positions → full 7 points.</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">8 · Nadi Koota — नाडी (8 points)</span></summary>
+      <p><b>What it measures.</b> <i>Nadi</i> carries the <b>highest weight</b> of all eight kootas. It maps to the three Ayurvedic <i>doshas</i> and judges physiological constitution, genetic compatibility, and — most importantly — the <b>health and viability of children</b>.</p>
+      <p><b>The 3 Nadis and their nakshatras:</b></p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Nadi</th><th>Ayurvedic</th><th>Element</th><th>Nakshatras</th></tr></thead>
+        <tbody>
+          <tr><td>Adi (आदि)</td><td>Vata</td><td>Wind</td><td>Ashwini, Ardra, Punarvasu, Uttara Phalguni, Hasta, Jyeshtha, Mula, Shatabhisha, Purva Bhadrapada</td></tr>
+          <tr><td>Madhya (मध्य)</td><td>Pitta</td><td>Bile</td><td>Bharani, Mrigashira, Pushya, Purva Phalguni, Chitra, Anuradha, Purva Ashadha, Dhanishta, Uttara Bhadrapada</td></tr>
+          <tr><td>Antya (अन्त्य)</td><td>Kapha</td><td>Phlegm</td><td>Krittika, Rohini, Ashlesha, Magha, Swati, Vishakha, Uttara Ashadha, Shravana, Revati</td></tr>
+        </tbody>
+      </table></div>
+      <p><b>Rule.</b> The couple must have <b>different Nadis</b> → <b>8 points</b>. <b>Same Nadi</b> → <b>0 points (Nadi Dosha)</b>. There are no partial scores.</p>
+      <p>Same-Nadi is treated as the most serious single defect in the whole system — classically associated with health problems for the couple and risk to progeny — so a high total (even 28+) with Nadi Dosha is still considered unsafe unless cancelled.</p>
+      <p><b>Cancellation (<i>parihara</i>) of Nadi Dosha</b> — the classical verse and its standard reading:</p>
+      <blockquote class="learn-verse">
+        <div class="san">राश्यैक्ये च द्वयोर्भिन्नमृक्षं स्वान्त्यर्क्षयोस्त्रये राशियुग्मम् ।<br>नाडीदोषो नो गणानां च दोषो नक्षत्रैक्ये पादभेदे शुभं स्यात् ॥</div>
+      </blockquote>
+      <p>The conditions it and allied texts describe:</p>
+      <ul class="learn-list">
+        <li>the couple share the <b>same janma nakshatra but different <i>padas</i></b> (quarters); or</li>
+        <li>the couple have the <b>same Moon rashi but different nakshatras</b>; or</li>
+        <li>the couple have <b>different Moon rashis but the same nakshatra</b>; or</li>
+        <li>the shared nakshatra is one that spans two rashis and they fall in the <b>different rashi-portions</b>; or</li>
+        <li>the Nadi is the same but the <i>nakshatra lord</i> differs and other kootas are strong.</li>
+      </ul>
+      <p>In the sample report (boy Madhya, girl Antya) the Nadis differ → full 8 points, the strongest possible result.</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">9 · Reading the total score</span></summary>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Total (out of 36)</th><th>Traditional verdict</th></tr></thead>
+        <tbody>
+          <tr><td>Below 18</td><td>Not recommended</td></tr>
+          <tr><td>18 – 24</td><td>Acceptable / average (<i>madhyama</i>)</td></tr>
+          <tr><td>25 – 32</td><td>Very good (<i>shubha</i>)</td></tr>
+          <tr><td>33 – 36</td><td>Excellent (<i>uttama</i>) — extremely rare</td></tr>
+        </tbody>
+      </table></div>
+      <p><b>18</b> is the conventional minimum. But three overrides matter more than the headline number:</p>
+      <ol class="learn-list">
+        <li><b>Nadi Dosha</b> (8 points lost) — many astrologers will not pass a match on this alone, even at 28+, unless a genuine <i>parihara</i> applies.</li>
+        <li><b>Bhakoot Dosha</b> (7 points lost) — if Bhakoot is afflicted, the score bands above shift down; some hold that no match with an uncancelled Bhakoot dosha is truly "excellent."</li>
+        <li><b>Gana Dosha</b> with bride = Rakshasa, groom = Deva — flagged for serious temperament conflict.</li>
+      </ol>
+      <p>The lower-value kootas (Varna, Vashya, Tara) losing points is considered minor and routinely tolerated.</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">10 · Important caveats</span></summary>
+      <ul class="learn-list">
+        <li><b>Guna Milan is a screening tool, not a verdict.</b> Every classical source insists the <i>individual</i> charts be read first — longevity, the 7th house and its lord, Venus (for men) and Jupiter/Mars (for women), Manglik/Kuja dosha, and the running dasha. A 32/36 score over two fragile charts is weaker than 20/36 over two sound ones.</li>
+        <li><b>Manglik (Kuja) Dosha is separate</b> from Ashtakoota and is checked independently; classically a Manglik should be matched with a Manglik.</li>
+        <li><b>Regional systems differ.</b> What is described here is the North-Indian <b>Ashtakoota</b> (8 kootas / 36 points). South-Indian practice often uses the <b>Dashakoota</b> (10 kootas), adding Mahendra, Stree-Deergha, Vedha and Rajju koota, and weights Rajju and Vedha heavily.</li>
+        <li><b>Recensions vary.</b> Sub-point values in Vashya and Graha Maitri, the exact malefic-Tara set, and even some nakshatra-to-yoni assignments differ slightly between texts and between software implementations. The <i>structure</i> is stable; the decimals are not.</li>
+        <li><b>"Varna" and "caste"</b> are not the same thing here — in this system Varna is a four-fold category read off the Moon's sign, used as a temperament indicator.</li>
+        <li>This is a traditional belief system. It is presented here descriptively, as the rules are actually stated in the classical literature.</li>
+      </ul>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">Appendix · Nakshatra → Rashi reference</span></summary>
+      <p>Use this to derive Varna, Vashya, Graha Maitri and Bhakoot inputs from a janma nakshatra. Several nakshatras straddle two signs by <i>pada</i> (quarter):</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Nakshatra</th><th>Rashi (sign)</th></tr></thead>
+        <tbody>
+          <tr><td>Ashwini, Bharani</td><td>Aries</td></tr>
+          <tr><td>Krittika</td><td>pada 1 → Aries; padas 2–4 → Taurus</td></tr>
+          <tr><td>Rohini</td><td>Taurus</td></tr>
+          <tr><td>Mrigashira</td><td>padas 1–2 → Taurus; padas 3–4 → Gemini</td></tr>
+          <tr><td>Ardra</td><td>Gemini</td></tr>
+          <tr><td>Punarvasu</td><td>padas 1–3 → Gemini; pada 4 → Cancer</td></tr>
+          <tr><td>Pushya, Ashlesha</td><td>Cancer</td></tr>
+          <tr><td>Magha, Purva Phalguni</td><td>Leo</td></tr>
+          <tr><td>Uttara Phalguni</td><td>pada 1 → Leo; padas 2–4 → Virgo</td></tr>
+          <tr><td>Hasta</td><td>Virgo</td></tr>
+          <tr><td>Chitra</td><td>padas 1–2 → Virgo; padas 3–4 → Libra</td></tr>
+          <tr><td>Swati</td><td>Libra</td></tr>
+          <tr><td>Vishakha</td><td>padas 1–3 → Libra; pada 4 → Scorpio</td></tr>
+          <tr><td>Anuradha, Jyeshtha</td><td>Scorpio</td></tr>
+          <tr><td>Mula, Purva Ashadha</td><td>Sagittarius</td></tr>
+          <tr><td>Uttara Ashadha</td><td>pada 1 → Sagittarius; padas 2–4 → Capricorn</td></tr>
+          <tr><td>Shravana</td><td>Capricorn</td></tr>
+          <tr><td>Dhanishta</td><td>padas 1–2 → Capricorn; padas 3–4 → Aquarius</td></tr>
+          <tr><td>Shatabhisha</td><td>Aquarius</td></tr>
+          <tr><td>Purva Bhadrapada</td><td>padas 1–3 → Aquarius; pada 4 → Pisces</td></tr>
+          <tr><td>Uttara Bhadrapada, Revati</td><td>Pisces</td></tr>
+        </tbody>
+      </table></div>
+    </details>
+
+    <p class="small" style="text-align:center;color:var(--text-3);font-style:italic;padding:18px;">Prepared as a reference to the classical Ashtakoota system. Verse wording follows commonly reproduced forms; classical recensions vary in exact phrasing and in some sub-point values.</p>
+  `;
 }
 
 // ---------- INIT ----------
