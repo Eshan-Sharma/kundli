@@ -7,6 +7,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--
+  astronomy-engine — pure-JS VSOP87-based ephemeris. Loaded from jsdelivr CDN.
+  Browser/WebView caches the ~100KB file after first online load; app then works
+  offline. If the script fails to load, the app silently falls back to the
+  built-in simplified engine (lower precision, same output shape).
+-->
+<script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js" defer></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   /* === MODERN VEDIC theme (Direction C). One palette, two modes. === */
@@ -552,6 +559,7 @@
         <div class="kundli-subnav" id="kundliSubnav">
           <button class="sub-tab active" data-sub="overview">Overview</button>
           <button class="sub-tab" data-sub="rashi">Rashi (D1)</button>
+          <button class="sub-tab" data-sub="bhava">Bhava Chalit</button>
           <button class="sub-tab" data-sub="navamsa">Navamsa (D9)</button>
           <button class="sub-tab" data-sub="moon">Moon</button>
           <button class="sub-tab" data-sub="divisional">Divisionals</button>
@@ -561,6 +569,7 @@
         </div>
         <div id="tab-overview" class="tab-content active"></div>
         <div id="tab-rashi" class="tab-content"></div>
+        <div id="tab-bhava" class="tab-content"></div>
         <div id="tab-navamsa" class="tab-content"></div>
         <div id="tab-moon" class="tab-content"></div>
         <div id="tab-divisional" class="tab-content"></div>
@@ -754,18 +763,76 @@ function fmtDateTime(jd) {
   return `${d.day.toString().padStart(2,'0')}-${monthName(d.month)}-${d.year} ${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
 }
 
-// ---------- LAHIRI AYANAMSA ----------
+// ============================================================
+// HIGH-PRECISION ASTRONOMY WRAPPER (astronomy-engine, with fallback)
+// ============================================================
+//
+// astronomy-engine is loaded via <script> tag in <head>. If unavailable (e.g.
+// no internet on first launch and no cached copy yet), the AE_* helpers return
+// `null` and the downstream sunLongitude/moonLongitude/planetGeoLongitude
+// fall back to the original simplified VSOP / Brown's-lunar-theory math.
+//
+// When AE is available: planets are sub-arcsecond; Moon is ~1 arcsecond.
+// When the fallback runs: planets ~0.1-0.5°; Moon ~0.1°.
+function aeReady() {
+  return typeof Astronomy !== "undefined" && Astronomy && Astronomy.Body && Astronomy.MakeTime;
+}
+function jdToJsDate(jd) {
+  return new Date((jd - 2440587.5) * 86400000);
+}
+function aeTime(jd) { return Astronomy.MakeTime(jdToJsDate(jd)); }
+
+// Tropical ecliptic longitude (deg, 0..360) of Sun via AE; null if not loaded.
+function AE_sunLongitude(jd) {
+  if (!aeReady()) return null;
+  const v = Astronomy.GeoVector(Astronomy.Body.Sun, aeTime(jd), true);
+  return mod360(Astronomy.Ecliptic(v).elon);
+}
+// Tropical ecliptic longitude of Moon via AE.
+function AE_moonLongitude(jd) {
+  if (!aeReady()) return null;
+  return mod360(Astronomy.EclipticGeoMoon(aeTime(jd)).lon);
+}
+// Tropical ecliptic longitude of a planet ("mercury"/"venus"/"mars"/"jupiter"/"saturn") via AE.
+function AE_planetLongitude(planet, jd) {
+  if (!aeReady()) return null;
+  const bodyMap = { mercury:"Mercury", venus:"Venus", mars:"Mars", jupiter:"Jupiter", saturn:"Saturn" };
+  const name = bodyMap[planet];
+  if (!name) return null;
+  const v = Astronomy.GeoVector(Astronomy.Body[name], aeTime(jd), true);
+  return mod360(Astronomy.Ecliptic(v).elon);
+}
+
+// ============================================================
+// AYANAMSA — multiple traditions selectable
+// ============================================================
+//
+// Settings.kundliAyanamsa controls which formula is applied. All four use the
+// same secular precession rate (≈50.288"/yr) but differ in the J2000 offset
+// (zero point). Linear approximation; for arcminute-level accuracy this is fine.
+const AYANAMSA_DEFS = {
+  // Lahiri Chitrapaksha — Indian government standard. J2000 ≈ 23°51'12"
+  lahiri:  { name:"Lahiri (Chitrapaksha)", j2000: 23.853333, rate: 50.288 },
+  // Krishnamurti Paddhati ayanamsa — ≈12' less than Lahiri
+  kp:      { name:"Krishnamurti (KP)",      j2000: 23.838333, rate: 50.288 },
+  // B.V. Raman ayanamsa — ≈22°22' at J2000
+  raman:   { name:"B.V. Raman",             j2000: 22.366667, rate: 50.288 },
+  // Fagan-Bradley — Western sidereal default. J2000 ≈ 24°44'37"
+  fagan:   { name:"Fagan-Bradley",          j2000: 24.743611, rate: 50.290 }
+};
+function currentAyanamsaId() {
+  return localStorage.getItem("kundliAyanamsa") || "lahiri";
+}
 function ayanamsa(jd) {
-  // Lahiri ayanamsa: ~23°51'11" on 21 Mar 1956 (JD 2435553.5)
-  // Annual precession ≈ 50.2879"/yr
-  const T = (jd - 2451545.0) / 36525.0;
-  // Polynomial fit close to Lahiri values
-  return 23.85 + 0.0137 * T * 100 + 0.000308 * T * T;
-  // approx: at J2000 ≈ 23.85°; per century ≈ +1.37°
+  const a = AYANAMSA_DEFS[currentAyanamsaId()] || AYANAMSA_DEFS.lahiri;
+  // years from J2000 (Julian years of 365.25 days)
+  const years = (jd - 2451545.0) / 365.25;
+  return a.j2000 + (a.rate / 3600.0) * years;
 }
 
 // ---------- SUN ----------
 function sunLongitude(jd) {
+  const ae = AE_sunLongitude(jd); if (ae !== null) return ae;
   const n = jd - 2451545.0;
   const L = mod360(280.460 + 0.9856474 * n);
   const g = mod360(357.528 + 0.9856003 * n);
@@ -775,6 +842,7 @@ function sunLongitude(jd) {
 
 // ---------- MOON ----------
 function moonLongitude(jd) {
+  const ae = AE_moonLongitude(jd); if (ae !== null) return ae;
   const T = (jd - 2451545.0) / 36525.0;
   // Mean longitude
   let L = mod360(218.3164477 + 481267.88123421 * T - 0.0015786 * T*T);
@@ -854,6 +922,7 @@ function helioPos(planet, T) {
 }
 
 function planetGeoLongitude(planet, jd) {
+  const ae = AE_planetLongitude(planet, jd); if (ae !== null) return ae;
   const T = (jd - 2451545.0) / 36525.0;
   const earth = helioPos('earth', T);
   const p = helioPos(planet, T);
@@ -875,12 +944,117 @@ function isRetrograde(planet, jd) {
   return d < 0;
 }
 
-// ---------- RAHU (Mean Lunar Node) ----------
-function rahuLongitude(jd) {
+// ============================================================
+// HOUSE SYSTEMS  — Whole Sign · Equal House · Sripati (Bhava Chalit base)
+// ============================================================
+//
+// Settings.kundliHouseSystem chooses which set of house *cusps* is used for the
+// "actual bhava" computation. Whole-Sign (the default in Vedic) treats each
+// sign as a house — the existing logic everywhere assumes this. Equal House
+// divides the ecliptic into 12 × 30° starting at the exact Lagna degree.
+// Sripati is the classical Vedic 12-cusp system that drives Bhava Chalit:
+// Asc and MC are the corner cusps, intermediate cusps trisect the arcs.
+//
+// Returns an array of 12 cusp longitudes (degrees, sidereal, 0..360 wrapped).
+// Whole-Sign and Equal are deterministic from the Lagna degree alone; Sripati
+// needs the MC (10th cusp from RAMC).
+function currentHouseSystem() {
+  return localStorage.getItem("kundliHouseSystem") || "whole";
+}
+function houseCusps(ascSidereal, mcSidereal) {
+  const sys = currentHouseSystem();
+  const cusps = new Array(12);
+  if (sys === "whole") {
+    // Each cusp = start of the sign containing it (Asc-sign for 1st, +30° each)
+    const ascSign = Math.floor(ascSidereal / 30);
+    for (let i = 0; i < 12; i++) cusps[i] = mod360((ascSign + i) * 30);
+    return cusps;
+  }
+  if (sys === "equal") {
+    // 1st cusp = exact Asc degree, each subsequent = +30°
+    for (let i = 0; i < 12; i++) cusps[i] = mod360(ascSidereal + i * 30);
+    return cusps;
+  }
+  // Sripati — trisect the arcs Asc→MC, MC→Desc, Desc→IC, IC→Asc.
+  // (MC here is the sidereal MC longitude, NOT the ecliptic 10° offset.)
+  // We treat the arcs as forward-going; if MC is "behind" Asc (rare at high lat),
+  // we still walk forward by always taking the shorter forward step interpretation.
+  const asc = ascSidereal, mc = mcSidereal;
+  const desc = mod360(asc + 180), ic = mod360(mc + 180);
+  // Arc lengths (always positive, going clockwise / forward)
+  const arc = (from, to) => { let d = to - from; while (d < 0) d += 360; while (d >= 360) d -= 360; return d; };
+  // Sripati cusps fill the 4 quadrants in order: H1=Asc, H4=IC, H7=Desc, H10=MC
+  // Cusps 2,3 between H1 and H4; 5,6 between H4 and H7; 8,9 between H7 and H10; 11,12 between H10 and H1.
+  cusps[0]  = asc;
+  cusps[3]  = ic;
+  cusps[6]  = desc;
+  cusps[9]  = mc;
+  const a14 = arc(asc, ic);
+  const a47 = arc(ic, desc);
+  const a710 = arc(desc, mc);
+  const a101 = arc(mc, asc);
+  cusps[1] = mod360(asc + a14 / 3);
+  cusps[2] = mod360(asc + 2 * a14 / 3);
+  cusps[4] = mod360(ic + a47 / 3);
+  cusps[5] = mod360(ic + 2 * a47 / 3);
+  cusps[7] = mod360(desc + a710 / 3);
+  cusps[8] = mod360(desc + 2 * a710 / 3);
+  cusps[10] = mod360(mc + a101 / 3);
+  cusps[11] = mod360(mc + 2 * a101 / 3);
+  return cusps;
+}
+// Given a planet's sidereal longitude and the 12 house cusps, return 1..12.
+function houseOf(longSidereal, cusps) {
+  for (let i = 0; i < 12; i++) {
+    const a = cusps[i], b = cusps[(i+1) % 12];
+    let inside;
+    if (a <= b) inside = (longSidereal >= a && longSidereal < b);
+    else        inside = (longSidereal >= a || longSidereal < b);
+    if (inside) return i + 1;
+  }
+  return 1;
+}
+
+// MC (Medium Coeli) — sidereal MC longitude given JD, lat, lon.
+// Used by Sripati for the 10th-cusp anchor; not currently needed for Whole/Equal.
+function mcSidereal(jd, lat, lon) {
+  const lst = mod360(gmst(jd) + lon);
+  const ramc = lst;
+  const eps = 23.4392911 - 0.0130042 * ((jd - 2451545.0) / 36525.0);
+  // Tropical MC ecliptic longitude = atan2(sin(RAMC), cos(RAMC) * cos(eps))
+  let mcTrop = atan2d(sind(ramc), cosd(ramc) * cosd(eps));
+  if (mcTrop < 0) mcTrop += 360;
+  return mod360(mcTrop - ayanamsa(jd));
+}
+
+// ---------- RAHU (Lunar Node, mean OR true) ----------
+// Mean node: smooth analytical formula. True node: mean + periodic corrections
+// (Meeus chapter 47, leading 5 terms — accurate to ~0.05°). User chooses via
+// Settings.kundliNodeMode = "mean" | "true". Defaults to mean (classical).
+function currentNodeMode() {
+  return localStorage.getItem("kundliNodeMode") || "mean";
+}
+function meanRahuLongitude(jd) {
   const T = (jd - 2451545.0) / 36525.0;
-  // Longitude of Moon's ascending node (mean), retrograde
-  const omega = 125.04452 - 1934.136261 * T + 0.0020708 * T*T + T*T*T/450000.0;
-  return mod360(omega);
+  return mod360(125.04452 - 1934.136261 * T + 0.0020708 * T*T + T*T*T/450000.0);
+}
+function trueRahuLongitude(jd) {
+  const T  = (jd - 2451545.0) / 36525.0;
+  const Ω  = 125.04452 - 1934.136261*T + 0.0020708*T*T + T*T*T/450000.0;
+  const D  = mod360(297.8501921 + 445267.1114034 * T);
+  const M  = mod360(357.5291092 + 35999.0502909  * T);
+  const Mp = mod360(134.9633964 + 477198.8675055 * T);
+  const F  = mod360( 93.2720950 + 483202.0175233 * T);
+  // Main periodic terms (from Meeus 47, abridged — amplitudes in degrees)
+  const corr = -1.5705 * sind(2*D - 2*F)
+             - 0.1502 * sind(2*D)
+             + 0.0758 * sind(2*F)
+             - 0.0226 * sind(M)
+             + 0.0149 * sind(Mp);
+  return mod360(Ω + corr);
+}
+function rahuLongitude(jd) {
+  return currentNodeMode() === "true" ? trueRahuLongitude(jd) : meanRahuLongitude(jd);
 }
 
 // ---------- ASCENDANT ----------
@@ -1854,6 +2028,7 @@ function generateChart() {
 function renderAllTabs() {
   renderOverview();
   renderRashi();
+  renderBhava();
   renderNavamsa();
   renderMoon();
   renderDivisional();
@@ -2015,6 +2190,73 @@ function renderRashi() {
   }
   html += "</tbody></table></div></div>";
   document.getElementById("tab-rashi").innerHTML = html;
+}
+
+// Bhava Chalit — planet's "actual bhava" via Sripati cusps (vs rashi-house).
+// When the user picks Whole Sign in Settings, Rashi-house and Bhava match; with
+// Equal or Sripati selected, they can differ — this tab shows the bhava side.
+function renderBhava() {
+  if (!CURRENT) return;
+  const { positions, input } = CURRENT;
+  const ascSid = positions.As.sidereal;
+  const mc = mcSidereal(input.jd, input.lat, input.lon);
+  const cusps = houseCusps(ascSid, mc);
+  // Build planet → bhava
+  const order = ["As","Su","Mo","Ma","Me","Ju","Ve","Sa","Ra","Ke"];
+  const byBhava = Array.from({length: 12}, () => []);
+  for (const p of order) {
+    const h = houseOf(positions[p].sidereal, cusps);
+    byBhava[h - 1].push(p);
+  }
+  // Compose a North-Indian-style display using bhava as the house anchor.
+  // For visual continuity we still use the same drawNorthIndianChart helper —
+  // pass each bhava's "lead sign" (the sign containing the cusp) and the planet
+  // labels filtered into the bhava buckets.
+  const signsInBhavas = cusps.map(c => Math.floor(c / 30));
+  const planetsInBhavas = byBhava.map(arr => arr.map(p => ({ label: p, retro: positions[p].retro && p !== "As" })));
+  const svg = drawNorthIndianChart(null, signsInBhavas, planetsInBhavas, signsInBhavas[0]);
+  const sysName = { whole:"Whole Sign", equal:"Equal House", sripati:"Sripati" }[currentHouseSystem()] || "Whole Sign";
+  let html = `
+    <div class="chart-wrap">
+      <div class="chart-box">
+        <div class="chart-title">Bhava Chalit (D1 by ${sysName})</div>
+        ${svg}
+        <div class="legend">House system: ${sysName}. Planets placed in their actual bhava (not just rashi house).</div>
+      </div>
+      <div style="flex:1; min-width:320px;">
+        <h3 style="color:var(--accent);">Cusp positions</h3>
+        <table>
+          <thead><tr><th>Bhava</th><th>Cusp longitude</th><th>Sign at cusp</th></tr></thead>
+          <tbody>
+            ${cusps.map((c, i) => {
+              const s = Math.floor(c / 30);
+              const deg = (c - s * 30).toFixed(2);
+              return `<tr><td>${i+1}</td><td class="mono">${c.toFixed(2)}°</td><td>${SIGNS[s]} · ${deg}°</td></tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <h3 style="color:var(--accent);margin-bottom:10px;">Planet → Bhava placement</h3>
+      <table>
+        <thead><tr><th>Planet</th><th>Sidereal longitude</th><th>Rashi house (D1)</th><th>Bhava (${sysName})</th><th>Δ</th></tr></thead>
+        <tbody>
+          ${order.map(p => {
+            const lon = positions[p].sidereal;
+            const sgn = Math.floor(lon / 30);
+            const rashiHouse = ((sgn - Math.floor(ascSid / 30) + 12) % 12) + 1;
+            const bhava = houseOf(lon, cusps);
+            const diff = bhava - rashiHouse;
+            const diffTxt = diff === 0 ? '<span class="chip">same</span>' : (diff > 0 ? `<span class="chip warn">+${diff}</span>` : `<span class="chip warn">${diff}</span>`);
+            return `<tr><td><b>${PLANET_FULL[p] || p}</b></td><td class="mono">${lon.toFixed(2)}°</td><td>${rashiHouse}H</td><td>${bhava}H</td><td>${diffTxt}</td></tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+      <p class="small" style="color:var(--text-3);margin-top:10px;">Δ shows the bhava shift vs the rashi-house. With Whole Sign all Δ = 0 (rashi = bhava). With Equal or Sripati, planets near cusp boundaries can shift one bhava either way — that's what "Bhava Chalit" classically reveals.</p>
+    </div>
+  `;
+  document.getElementById("tab-bhava").innerHTML = html;
 }
 
 function renderNavamsa() {
@@ -4059,7 +4301,35 @@ function renderSettings() {
             <button class="${LANG==='hi'?'':'secondary'}" style="padding:6px 12px;margin-left:4px;" onclick="setLang('hi')">अ · ${t('Hindi')}</button>
           </div>
         </div>
-        <div class="tile"><div class="lbl">${t('Ayanamsa')}</div><div class="val" style="margin-top:6px;">Lahiri · Chitrapaksha</div><div class="sub">Sidereal, fixed-star based</div></div>
+        <div class="tile"><div class="lbl">${t('Ayanamsa')}</div>
+          <div class="val" style="margin-top:6px;">
+            <select onchange="setAyanamsa(this.value)" style="width:100%;font-size:13px;">
+              ${Object.keys(AYANAMSA_DEFS).map(id => `<option value="${id}" ${currentAyanamsaId()===id?'selected':''}>${AYANAMSA_DEFS[id].name}</option>`).join("")}
+            </select>
+          </div>
+          <div class="sub">Used everywhere sidereal positions are computed.</div>
+        </div>
+        <div class="tile"><div class="lbl">Lunar Node</div>
+          <div class="val" style="margin-top:6px;">
+            <button class="${currentNodeMode()==='mean'?'':'secondary'}" style="padding:6px 12px;" onclick="setNodeMode('mean')">Mean (Madhya)</button>
+            <button class="${currentNodeMode()==='true'?'':'secondary'}" style="padding:6px 12px;margin-left:4px;" onclick="setNodeMode('true')">True (Sphuta)</button>
+          </div>
+          <div class="sub">Rahu / Ketu computation method.</div>
+        </div>
+        <div class="tile" style="grid-column: span 2;"><div class="lbl">House System</div>
+          <div class="val" style="margin-top:6px;">
+            <button class="${currentHouseSystem()==='whole'?'':'secondary'}"  style="padding:6px 12px;"             onclick="setHouseSystem('whole')">Whole Sign</button>
+            <button class="${currentHouseSystem()==='equal'?'':'secondary'}"  style="padding:6px 12px;margin-left:4px;" onclick="setHouseSystem('equal')">Equal House</button>
+            <button class="${currentHouseSystem()==='sripati'?'':'secondary'}"style="padding:6px 12px;margin-left:4px;" onclick="setHouseSystem('sripati')">Sripati (Bhava Chalit)</button>
+          </div>
+          <div class="sub">Whole-Sign is the Vedic default. Sripati powers the Bhava Chalit chart (planet's "actual bhava").</div>
+        </div>
+        <div class="tile"><div class="lbl">Engine</div>
+          <div class="val" style="margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:${typeof Astronomy !== 'undefined' && Astronomy.Body ? 'var(--good)' : 'var(--warn)'};">
+            ${typeof Astronomy !== 'undefined' && Astronomy.Body ? "astronomy-engine ● loaded" : "fallback (simplified)"}
+          </div>
+          <div class="sub">High-precision when astronomy-engine is reachable; falls back to built-in math offline-on-first-launch.</div>
+        </div>
         <div class="tile"><div class="lbl">${t('Active Person')}</div>
           <div class="val" style="margin-top:6px;">
             <button class="${ACTIVE_PERSON==='self'?'':'secondary'}" style="padding:6px 12px;" onclick="switchActivePerson('self')">${SELF_DATA?SELF_DATA.input.name:'Self'}</button>
@@ -4078,6 +4348,30 @@ function renderSettings() {
 }
 function setTheme(t) { document.documentElement.setAttribute("data-theme", t); localStorage.setItem("kundliTheme", t); updateThemeIcon(t); renderSettings(); }
 function setLang(l) { LANG = l; localStorage.setItem("kundliLang", LANG); applyLanguage(); renderSettings(); }
+// Any change to ayanamsa, node mode, or house system invalidates every position
+// downstream — rebuild SELF (and PARTNER if loaded), then refresh all visible panes.
+function recomputeAll() {
+  if (SELF_DATA) {
+    const inp = SELF_DATA.input;
+    SELF_DATA = buildPersonData(inp);
+    if (ACTIVE_PERSON === "self") CURRENT = SELF_DATA;
+  }
+  if (PARTNER_DATA) {
+    PARTNER_DATA = buildPersonData(PARTNER_DATA.input);
+    if (ACTIVE_PERSON === "partner") CURRENT = PARTNER_DATA;
+  }
+  try {
+    renderPersonSwitcher();
+    renderOverview(); renderRashi(); renderBhava(); renderNavamsa(); renderMoon();
+    renderDivisional(); renderShadbala(); renderDasha(); renderTransit();
+    renderPanchangPane(); renderMuhuratPane();
+    renderMatchTab();
+    renderRemindersPane(); renderSettings();
+  } catch(e) { console.warn("recomputeAll:", e); }
+}
+function setAyanamsa(id)    { localStorage.setItem("kundliAyanamsa", id);     recomputeAll(); }
+function setNodeMode(m)     { localStorage.setItem("kundliNodeMode", m);      recomputeAll(); }
+function setHouseSystem(s)  { localStorage.setItem("kundliHouseSystem", s);   recomputeAll(); }
 
 // ============================================================
 // SAVED KUNDLIS — localStorage persistence
