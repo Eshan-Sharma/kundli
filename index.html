@@ -3892,7 +3892,40 @@ function renderMuhuratDay(date) {
       </div>
     </div>`;
   }
+  html += renderMuhuratTaraSection();
   return html;
+}
+
+// Tara — Star-cycle reference embedded in the Muhurat day view. Same 9-Tara × 3-cycle
+// table as Learn, with a dropdown to rotate the cycle to any starting nakshatra.
+// Defaults to the loaded Self's janma nakshatra if available, otherwise Ashwini.
+function renderMuhuratTaraSection() {
+  let defaultStart = 0;
+  if (SELF_DATA && SELF_DATA.positions) {
+    defaultStart = nakshatraOf(SELF_DATA.positions.Mo.sidereal).idx;
+  }
+  const opts = NAKSHATRAS.map((nk, i) =>
+    `<option value="${i}" ${i === defaultStart ? 'selected' : ''}>${i + 1}. ${nk[0]}</option>`
+  ).join("");
+  const defaultLabel = NAKSHATRAS[defaultStart][0];
+  return `
+    <div class="card">
+      <h3 style="color:var(--accent);margin-bottom:6px;">Tara — Star-cycle Reference</h3>
+      <p class="small" style="color:var(--text-2);margin-bottom:10px;">Pick any nakshatra as Janma; the 9-Tara cycle rotates accordingly. Default starts from <b>${defaultLabel}</b>${(SELF_DATA && SELF_DATA.positions) ? ' (your loaded janma nakshatra)' : ''}.</p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <label class="small" style="color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;">Start cycle from</label>
+        <select onchange="muhuratTaraStart(parseInt(this.value))" style="width:auto;min-width:180px;font-size:13px;">
+          ${opts}
+        </select>
+      </div>
+      <div class="scroll-x" id="muhuratTaraWrap">${renderLearnTaraTable(defaultStart)}</div>
+      <p class="small" style="color:var(--text-2);margin-top:10px;">The malefic Taras are the <b>3rd (Vipat), 5th (Pratyari), and 7th (Vadha)</b>. The 1st (Janma) is treated as neutral-to-cautionary.</p>
+    </div>`;
+}
+
+function muhuratTaraStart(idx) {
+  const wrap = document.getElementById("muhuratTaraWrap");
+  if (wrap) wrap.innerHTML = renderLearnTaraTable(idx);
 }
 
 // ---- Muhurat WEEK view ----
