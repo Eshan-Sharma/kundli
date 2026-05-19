@@ -3149,12 +3149,137 @@ function karanaForNum(k) {
   if (k <= 55) return MOV[k % 7];
   return FIX[k - 56];
 }
-// Hindu solar months by Sun's sidereal sign
-// Lunar month name approximation: when Sun is in sidereal sign N, the lunar
-// month is roughly named for the next Purnima's nakshatra, which corresponds
-// to one sign back. So: Sun in Pisces → Chaitra, Sun in Aries → Vaishakha, …
+// Hindu solar months by Sun's sidereal sign (Tamil/Bengali solar calendar naming).
+// Sun enters Mesha → solar month "Vaishakha" begins, etc. This is *not* the lunar
+// month — see HINDU_LUNAR_MONTHS below for that.
 const HINDU_SOLAR_MONTH = ["Vaishakha","Jyeshtha","Ashadha","Shravana","Bhadrapada","Ashwina","Kartika","Margashirsha","Pausha","Magha","Phalguna","Chaitra"];
+
+// Hindu lunar months in canonical order. The lunar month is bounded by
+// Amavasya (Amanta) or Purnima (Purnimanta). Its name is determined by the
+// Sun's sidereal sign at the Amavasya that begins (or falls inside) that
+// month: Sun in Meena (Pisces) at Amavasya → next month is Chaitra; Mesha →
+// Vaishakha; Vrishabha → Jyeshtha; … Kumbha → Phalguna.
+const HINDU_LUNAR_MONTHS = [
+  "Chaitra","Vaishakha","Jyeshtha","Ashadha","Shravana","Bhadrapada",
+  "Ashwina","Kartika","Margashirsha","Pausha","Magha","Phalguna"
+];
+
+// Ritu (Vedic season) — pairs of lunar months. Chaitra+Vaishakha = Vasanta
+// (spring), etc. This is the *correct* ritu mapping (lunar-month based), as
+// opposed to the older approximation that used Sun's sign directly.
+const RITU_BY_LUNAR_MONTH = [
+  "Vasanta","Vasanta","Grishma","Grishma","Varsha","Varsha",
+  "Sharad","Sharad","Hemanta","Hemanta","Shishira","Shishira"
+];
+
+// Kept for backward-compat with reminder UI that lists "Hindu Month" choices.
 const RITU_NAMES = ["Vasanta","Vasanta","Grishma","Grishma","Varsha","Varsha","Sharad","Sharad","Hemanta","Hemanta","Shishira","Shishira"];
+
+// ---- Synodic-phase finder: locate Amavasya (phi=0) or Purnima (phi=180) ----
+// phi = (Moon - Sun) mod 360. Mean rate ≈ 12.19°/day → synodic month ≈ 29.53d.
+// We solve f(jd) ≡ (phi(jd) - target) wrapped to (-180, +180] = 0, via
+// Newton-style steps with first-derivative ≈ mean rate. Stable for a few
+// degrees of perturbation; converges in <10 iterations to <0.0005° (< ~1s).
+function findSynodicCrossing(jd0, targetPhase, direction) {
+  const SYNODIC_DAYS = 29.530589;
+  const rate = 360 / SYNODIC_DAYS; // deg/day, positive
+  // Wrap (phi - target) to (-180, +180]
+  function residual(jd) {
+    let r = mod360(moonLongitude(jd) - sunLongitude(jd) - targetPhase);
+    if (r > 180) r -= 360;
+    return r;
+  }
+  // Initial estimate
+  const r0 = residual(jd0);
+  let estJD;
+  if (direction < 0) {
+    // Want previous crossing: step back by however far past we are.
+    // If r0 > 0 → we're past target (within last half-cycle), step back r0/rate.
+    // If r0 < 0 → we're before, must step back almost a full cycle.
+    estJD = (r0 > 0) ? jd0 - r0 / rate : jd0 - (r0 + 360) / rate;
+  } else {
+    // Want next crossing: step forward.
+    // If r0 < 0 → before target, step fwd by -r0/rate.
+    // If r0 > 0 → already past, must wait a full cycle.
+    estJD = (r0 < 0) ? jd0 - r0 / rate : jd0 + (360 - r0) / rate;
+  }
+  // Refine
+  for (let i = 0; i < 25; i++) {
+    const r = residual(estJD);
+    if (Math.abs(r) < 0.0005) break;
+    estJD -= r / rate;
+  }
+  return estJD;
+}
+
+// Returns the Hindu lunar month for a given JD in the given system.
+//   system = "amanta"      → month starts day after Amavasya, ends at next Amavasya
+//   system = "purnimanta"  → month starts day after Purnima,  ends at next Purnima
+// In both systems the *name* is determined by the Sun's sidereal sign at the
+// Amavasya inside the month. Returns { name, monthIdx, ritu, startJD, endJD,
+// amavasyaJD } where startJD/endJD bracket the month.
+function lunarMonthFor(jd0, system) {
+  let startJD, endJD, amavasyaJD;
+  if (system === "purnimanta") {
+    startJD = findSynodicCrossing(jd0, 180, -1); // prev Purnima
+    endJD   = findSynodicCrossing(jd0, 180, +1); // next Purnima
+    // The Amavasya inside this window — step a few hours past Purnima then search next
+    amavasyaJD = findSynodicCrossing(startJD + 0.5, 0, +1);
+  } else {
+    // amanta (default)
+    startJD = findSynodicCrossing(jd0, 0, -1); // prev Amavasya
+    endJD   = findSynodicCrossing(jd0, 0, +1); // next Amavasya
+    amavasyaJD = startJD;
+  }
+  const ay = ayanamsa(amavasyaJD);
+  const sunSidAt = mod360(sunLongitude(amavasyaJD) - ay);
+  const sunSignAt = Math.floor(sunSidAt / 30); // 0=Mesha … 11=Meena
+  // Sun in Meena (11) → Chaitra (0); Sun in Mesha (0) → Vaishakha (1); …
+  const monthIdx = (sunSignAt + 1) % 12;
+
+  // ---- Adhik / Kshaya Maas detection ----
+  // Count how many sankrantis (Sun crossing a multiple of 30° sidereal)
+  // fall strictly inside the Amanta lunar month window. For Amanta we use
+  // (Amavasya → next Amavasya); for Purnimanta we use the same Amanta window
+  // that *contains* the relevant Amavasya, since Adhik/Kshaya is a property
+  // of the Amanta synodic month, not of the Purnimanta calendar slice.
+  let amStart, amEnd;
+  if (system === "purnimanta") {
+    // Amavasya inside this Purnimanta month already known; find prev Amavasya
+    // and the next Amavasya around that Amavasya — that's the Amanta window.
+    amStart = findSynodicCrossing(amavasyaJD - 1, 0, -1);
+    amEnd   = findSynodicCrossing(amavasyaJD + 1, 0, +1);
+    // simpler: amavasya itself is one boundary; pair it with the next.
+    if (Math.abs(amStart - amavasyaJD) < 1) { amStart = amavasyaJD; amEnd = findSynodicCrossing(amavasyaJD + 1, 0, +1); }
+  } else {
+    amStart = startJD; amEnd = endJD;
+  }
+  // Sample Sun's sidereal sign at amStart+epsilon and amEnd-epsilon; the
+  // number of sankrantis inside is signAtEnd - signAtStart (mod 12), where
+  // we treat strict-interior crossings only.
+  const ssStart = Math.floor(mod360(sunLongitude(amStart + 0.01) - ayanamsa(amStart + 0.01)) / 30);
+  const ssEnd   = Math.floor(mod360(sunLongitude(amEnd   - 0.01) - ayanamsa(amEnd   - 0.01)) / 30);
+  let sankrantiCount = (ssEnd - ssStart + 12) % 12;
+  // If the Sun didn't move at all (impossible for ~29.5 days) or moved a full
+  // cycle without changing sign label, give it 0; that's fine.
+  const isAdhik  = sankrantiCount === 0;
+  const isKshaya = sankrantiCount >= 2;
+
+  // Adhik prefix and Nija note — keep the underlying month name intact so
+  // downstream code can still match on "Jyeshtha".
+  let displayName = HINDU_LUNAR_MONTHS[monthIdx];
+  if (isAdhik)  displayName = "Adhik " + displayName;
+  if (isKshaya) displayName = "Kshaya " + displayName;
+
+  return {
+    name: displayName,
+    rawName: HINDU_LUNAR_MONTHS[monthIdx],
+    monthIdx,
+    ritu: RITU_BY_LUNAR_MONTH[monthIdx],
+    startJD, endJD, amavasyaJD,
+    isAdhik, isKshaya, sankrantiCount
+  };
+}
 
 // Choghadia naming + auspiciousness
 const CHOGHADIA_TYPE = {
@@ -3323,6 +3448,16 @@ function nakshatraWindowJD(jdNoonUT) {
   return { startJD: jdNoonUT - dSince, endJD: jdNoonUT + dUntil, idx };
 }
 
+// Format a JD as a local civil date ("19 May" or "19 May 2026" if year differs).
+// Used for showing month/event start–end where the time-of-day isn't useful.
+function fmtJDDate(jd, tz, refYear) {
+  const ld = jdToDate(jd + tz / 24);
+  if (refYear !== undefined && ld.year === refYear) {
+    return `${ld.day} ${monthName(ld.month)}`;
+  }
+  return `${ld.day} ${monthName(ld.month)} ${ld.year}`;
+}
+
 // Format a JD as "HH:MM" local — with a small "prev"/"next" tag if it falls on a different day
 // than the date being viewed.
 function fmtJDLocal(jd, tz, viewY, viewM, viewD) {
@@ -3467,10 +3602,17 @@ function computePanchang(year, month, day, lat, lon, tz) {
   const karanaNum = Math.floor(diff / 6);
   const karanaName = karanaForNum(karanaNum);
 
-  // Hindu solar month & ritu by Sun's sidereal sign
+  // Hindu solar month (Tamil/Bengali calendars) — by Sun's sidereal sign.
   const sunSign = Math.floor(sunSid / 30);
-  const hinduMonth = HINDU_SOLAR_MONTH[sunSign];
-  const ritu = RITU_NAMES[sunSign];
+  const hinduSolarMonth = HINDU_SOLAR_MONTH[sunSign];
+
+  // Hindu LUNAR month — bounded by Amavasya (Amanta) or Purnima (Purnimanta),
+  // not by sankranti. We compute both systems and surface both dates. Ritu
+  // follows the Amanta lunar month (the more orthodox Vedic mapping).
+  const lunarAmanta     = lunarMonthFor(jdNoonUT, "amanta");
+  const lunarPurnimanta = lunarMonthFor(jdNoonUT, "purnimanta");
+  const hinduMonth = lunarAmanta.name;             // canonical "Hindu Month"
+  const ritu       = lunarAmanta.ritu;
 
   // Weekday
   const localJD = julianDay(year, month, day, 12);
@@ -3505,6 +3647,8 @@ function computePanchang(year, month, day, lat, lon, tz) {
     yogaName, yogaNum, isYogaBad: YOGA_INAUSPICIOUS.has(yogaName),
     karanaName, karanaNum,
     hinduMonth, ritu, sunSign,
+    hinduSolarMonth,
+    lunarAmanta, lunarPurnimanta,
     sun, rahu, yama, gulika, abhijit, brahma, choghadia,
     specialYogas: yogas,
     moonSign: Math.floor(moonSid / 30),
@@ -3737,7 +3881,20 @@ function renderCalDay(date, tz) {
       <div class="info-cell"><div class="lbl">${t('Yoga')}</div><div class="val">${pan.yogaName} ${pan.isYogaBad?`<span class="badge bad">${t('Inauspicious')}</span>`:''}</div>${(()=>{const w=nityayogaWindowJD(julianDay(Y,M,D,12-tz));return `<div class="small mono" style="color:var(--text-3);margin-top:2px;">⏱ ${fmtJDLocal(w.startJD,tz,Y,M,D)} → ${fmtJDLocal(w.endJD,tz,Y,M,D)}</div>`;})()}</div>
       <div class="info-cell"><div class="lbl">${t('Karana')}</div><div class="val">${pan.karanaName}</div></div>
       <div class="info-cell"><div class="lbl">${t('Vaar')}</div><div class="val">${t(WEEKDAY_NAMES[pan.weekday])}</div></div>
-      <div class="info-cell"><div class="lbl">${t('Hindu Month')} / ${t('Ritu')}</div><div class="val">${t(pan.hinduMonth)} / ${t(pan.ritu)}</div></div>
+      <div class="info-cell"><div class="lbl">${t('Hindu Month (Amanta)')} / ${t('Ritu')}</div>
+        <div class="val">${t(pan.lunarAmanta.name)}${pan.lunarAmanta.isAdhik?' <span class="badge warn" title="Adhik Maas: this lunar month contains no Sankranti, so it is an intercalary (extra) month. The next regular month with this name will be the Nija (true) one.">Adhik</span>':''}${pan.lunarAmanta.isKshaya?' <span class="badge bad" title="Kshaya Maas: this lunar month contains two Sankrantis — a very rare \'lost\' month, merged into the next.">Kshaya</span>':''} / ${t(pan.lunarAmanta.ritu)}</div>
+        <div class="small mono" style="color:var(--text-3);margin-top:2px;">⏱ ${fmtJDDate(pan.lunarAmanta.startJD, tz, Y)} → ${fmtJDDate(pan.lunarAmanta.endJD, tz, Y)}</div>
+        <div class="small" style="color:var(--text-3);margin-top:2px;">Bounded by Amavasya. South-Indian / Maharashtrian convention.${pan.lunarAmanta.isAdhik?' This month has no Sankranti — see Learn → M5.':''}${pan.lunarAmanta.isKshaya?' This month has two Sankrantis — see Learn → M6.':''}</div>
+      </div>
+      <div class="info-cell"><div class="lbl">${t('Hindu Month (Purnimanta)')}</div>
+        <div class="val">${t(pan.lunarPurnimanta.name)}${pan.lunarPurnimanta.isAdhik?' <span class="badge warn" title="Adhik Maas: this lunar month contains no Sankranti.">Adhik</span>':''}${pan.lunarPurnimanta.isKshaya?' <span class="badge bad" title="Kshaya Maas: rare lost month with two Sankrantis.">Kshaya</span>':''}</div>
+        <div class="small mono" style="color:var(--text-3);margin-top:2px;">⏱ ${fmtJDDate(pan.lunarPurnimanta.startJD, tz, Y)} → ${fmtJDDate(pan.lunarPurnimanta.endJD, tz, Y)}</div>
+        <div class="small" style="color:var(--text-3);margin-top:2px;">Bounded by Purnima. North-Indian convention.</div>
+      </div>
+      <div class="info-cell"><div class="lbl">${t('Solar Month')} (${t('Sankranti')})</div>
+        <div class="val">${t(pan.hinduSolarMonth)}</div>
+        <div class="small" style="color:var(--text-3);margin-top:2px;">Sun in ${SIGNS[pan.sunSign]}. Tamil / Bengali solar calendar.</div>
+      </div>
       <div class="info-cell"><div class="lbl">${t('Moon Sign')}</div><div class="val">${SIGNS[pan.moonSign]}</div></div>
       <div class="info-cell"><div class="lbl">${t('Sun Sign')}</div><div class="val">${SIGNS[pan.sunSign]}</div></div>
     </div>
@@ -3793,6 +3950,7 @@ function renderCalDay(date, tz) {
       ${festHtml}
       ${yogasHtml}
       ${panchangHtml}
+      ${renderNakshatraPadaCard(date, tz)}
       ${sunHtml}
       ${chogHtml}
       ${renderDietarySection(pan)}
@@ -4395,8 +4553,9 @@ function renderNakshatraPadaCard(date, tz) {
   const naks = nakshatraDayTimes(Y, M, D, tz);
   if (naks.length === 0) return "";
   const rows = naks.map((nk, i) => `
-    <details ${i === 0 ? 'open' : ''} style="border-bottom:1px solid var(--border);padding:8px 4px;">
+    <details style="border-bottom:1px solid var(--border);padding:8px 4px;">
       <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;list-style:none;">
+        <span style="font-size:11px;color:var(--text-3);">▸</span>
         <span style="font-weight:600;color:var(--text);">${nk.name}</span>
         <span class="chip">Lord: ${PLANET_FULL[nk.lord]}</span>
         <span class="mono" style="margin-left:auto;color:var(--accent);font-size:13px;">
@@ -6588,6 +6747,145 @@ function renderLearnPane() {
         <li><b>"Varna" and "caste"</b> are not the same thing here — in this system Varna is a four-fold category read off the Moon's sign, used as a temperament indicator.</li>
         <li>This is a traditional belief system. It is presented here descriptively, as the rules are actually stated in the classical literature.</li>
       </ul>
+    </details>
+
+    <div class="hero" style="margin-top:18px;">
+      <div class="eyebrow">Learn · Hindu Calendar Mechanics</div>
+      <div class="h-date display" style="font-size:24px;">Maasa &amp; Ritu — how the Hindu month and season are computed</div>
+      <p class="small" style="color:var(--text-2);margin-top:8px;line-height:1.55;">A self-contained reference covering what a Hindu lunar month is, how it gets its name from the Sun's sankranti, the difference between <i>Amanta</i> and <i>Purnimanta</i> conventions, how Ritu (season) is derived, and the rare cases of <i>Adhik Maas</i> (extra month) and <i>Kshaya Maas</i> (lost month). These are the rules our Panchang tab uses.</p>
+    </div>
+
+    <details class="card learn-section" open>
+      <summary><span class="section-h" style="display:inline;padding:0;">M1 · The Hindu calendar is lunisolar</span></summary>
+      <p>Two cycles run in parallel and the calendar reconciles them:</p>
+      <ul class="learn-list">
+        <li><b>Solar cycle.</b> The Sun moves through the 12 sidereal zodiac signs (<i>rashi</i>) in ~365.25 days. Each crossing into a new sign is a <i>sankranti</i> (e.g. Mesha Sankranti when the Sun enters Aries, around 14 April).</li>
+        <li><b>Lunar cycle.</b> The Moon laps the Sun every ~29.53 days (one <i>synodic month</i>). Each lap starts at <i>Amavasya</i> (new moon, Moon−Sun = 0°) and contains one <i>Purnima</i> (full moon, Moon−Sun = 180°).</li>
+      </ul>
+      <p>Days follow the lunar cycle; months follow the lunar cycle; but the year as a whole follows the Sun. Because 12 synodic months ≈ 354 days and a solar year ≈ 365 days, the calendar drifts ~11 days every year. To stop the seasons from sliding, the Hindu calendar inserts an extra month every ~32.5 months — that is <i>Adhik Maas</i>. Very rarely, the opposite happens and a month is dropped — <i>Kshaya Maas</i>.</p>
+      <pre style="background:var(--bg-2);padding:10px 12px;border-radius:8px;font-size:12px;line-height:1.5;color:var(--text-2);overflow-x:auto;">Solar year (365.25 d)  |==========================================|
+12 lunar months (354 d)|=====================================|
+                        ↑                                      ↑
+                  start of year                  ~11d short — needs adhik maas</pre>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">M2 · Amanta vs Purnimanta — where the month begins</span></summary>
+      <p>Both systems use the <b>same 12 month names</b> but disagree on which day a month begins. They differ by ~15 days (one paksha).</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>System</th><th>Month boundary</th><th>Where it's used</th></tr></thead>
+        <tbody>
+          <tr><td><b>Amanta</b> (अमान्त)</td><td>Begins the day after <b>Amavasya</b>; ends at the next Amavasya.</td><td>South India, Maharashtra, Gujarat. The orthodox Vedic / Drik convention.</td></tr>
+          <tr><td><b>Purnimanta</b> (पूर्णिमान्त)</td><td>Begins the day after <b>Purnima</b>; ends at the next Purnima.</td><td>Most of North India (UP, MP, Rajasthan, Bihar, Bengal).</td></tr>
+        </tbody>
+      </table></div>
+      <pre style="background:var(--bg-2);padding:10px 12px;border-radius:8px;font-size:12px;line-height:1.5;color:var(--text-2);overflow-x:auto;">
+              ┌────── Vaishakha (Amanta) ──────┐
+              │                                │
+   ─●─────────○──────●─────────○──────●──────  Moon phase
+    Ama       Pur    Ama       Pur    Ama
+              │                │
+              └Vaishakha (Purnimanta)
+                      starts 15d earlier
+</pre>
+      <p>So on, say, <b>5 April 2026</b>, the Amanta name is <i>Chaitra</i> (Phalguna ended at the 19 March Amavasya, next Amavasya is 17 April), but the Purnimanta name is already <i>Vaishakha</i> (Chaitra Purnima fell on 2 April).</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">M3 · The naming rule — sankranti decides the name</span></summary>
+      <p>The 12 lunar months share names with the 12 solar months, but the lunar month name comes from a specific rule:</p>
+      <blockquote class="learn-verse">
+        <div class="tr"><i><b>A lunar month is named after the solar month whose Sankranti falls inside it.</b></i></div>
+      </blockquote>
+      <p>Equivalently — and this is what our code uses — the name of the Amanta lunar month is determined by the Sun's <b>sidereal sign at the Amavasya that begins the month</b>:</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Sun's sign at Amavasya</th><th>Sankranti inside the month</th><th>Lunar month name</th></tr></thead>
+        <tbody>
+          <tr><td>Meena (Pisces)</td><td>Mesha → Aries (~14 Apr)</td><td><b>Chaitra</b></td></tr>
+          <tr><td>Mesha (Aries)</td><td>Vrishabha (~14 May)</td><td>Vaishakha</td></tr>
+          <tr><td>Vrishabha (Taurus)</td><td>Mithuna (~14 Jun)</td><td>Jyeshtha</td></tr>
+          <tr><td>Mithuna (Gemini)</td><td>Karka (~16 Jul)</td><td>Ashadha</td></tr>
+          <tr><td>Karka (Cancer)</td><td>Simha (~17 Aug)</td><td>Shravana</td></tr>
+          <tr><td>Simha (Leo)</td><td>Kanya (~17 Sep)</td><td>Bhadrapada</td></tr>
+          <tr><td>Kanya (Virgo)</td><td>Tula (~17 Oct)</td><td>Ashwina</td></tr>
+          <tr><td>Tula (Libra)</td><td>Vrischika (~16 Nov)</td><td>Kartika</td></tr>
+          <tr><td>Vrischika (Scorpio)</td><td>Dhanu (~15 Dec)</td><td>Margashirsha</td></tr>
+          <tr><td>Dhanu (Sagittarius)</td><td>Makara (~14 Jan) — <b>Makar Sankranti</b></td><td>Pausha</td></tr>
+          <tr><td>Makara (Capricorn)</td><td>Kumbha (~13 Feb)</td><td>Magha</td></tr>
+          <tr><td>Kumbha (Aquarius)</td><td>Meena (~14 Mar)</td><td>Phalguna</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small" style="color:var(--text-3);">The shift exists because each lunar month "reaches forward" to claim the next sankranti — the lunar month that begins in Meena ends after passing through Mesha Sankranti, so it is named for Mesha's solar month = Chaitra.</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">M4 · Ritu — six seasons, from the lunar months</span></summary>
+      <p>The Vedic year has six <b>Ritus</b> (seasons) of two lunar months each. Ritu derives from the Amanta lunar month, not from the Sun's sign directly.</p>
+      <div class="scroll-x"><table>
+        <thead><tr><th>Ritu</th><th>English</th><th>Lunar months</th><th>Approx. Gregorian</th></tr></thead>
+        <tbody>
+          <tr><td><b>Vasanta</b> (वसन्त)</td><td>Spring</td><td>Chaitra, Vaishakha</td><td>mid-Mar → mid-May</td></tr>
+          <tr><td><b>Grishma</b> (ग्रीष्म)</td><td>Summer</td><td>Jyeshtha, Ashadha</td><td>mid-May → mid-Jul</td></tr>
+          <tr><td><b>Varsha</b> (वर्षा)</td><td>Monsoon</td><td>Shravana, Bhadrapada</td><td>mid-Jul → mid-Sep</td></tr>
+          <tr><td><b>Sharad</b> (शरद्)</td><td>Autumn</td><td>Ashwina, Kartika</td><td>mid-Sep → mid-Nov</td></tr>
+          <tr><td><b>Hemanta</b> (हेमन्त)</td><td>Pre-winter</td><td>Margashirsha, Pausha</td><td>mid-Nov → mid-Jan</td></tr>
+          <tr><td><b>Shishira</b> (शिशिर)</td><td>Winter</td><td>Magha, Phalguna</td><td>mid-Jan → mid-Mar</td></tr>
+        </tbody>
+      </table></div>
+      <p>So once you know the Amanta lunar month, the ritu is just a lookup: <code>ritu_index = floor(month_index / 2)</code>.</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">M5 · Adhik Maas — the extra (intercalary) month</span></summary>
+      <p>Synodic lunar month ≈ <b>29.53 days</b>. Mean solar month ≈ <b>30.44 days</b>. So a lunar month is slightly <i>shorter</i> than a solar month — usually each lunar month contains exactly one sankranti. But sometimes a lunar month is so short, or so well-positioned, that <b>no sankranti falls inside it</b>. That month is an <b>Adhik Maas</b>.</p>
+      <ul class="learn-list">
+        <li><b>Detection.</b> Count sankrantis between this Amavasya and the next Amavasya. If <b>zero</b> → Adhik Maas.</li>
+        <li><b>Naming.</b> The Adhik month takes the name of the <i>next</i> regular month, prefixed with "Adhik" (e.g. <b>Adhik Jyeshtha</b>). The following normal month is then called <b>Nija</b> ("true") <i>same-name</i>.</li>
+        <li><b>Frequency.</b> Roughly every 32.5 months — about 7 times in every 19-year cycle.</li>
+        <li><b>Implication.</b> A year with an Adhik Maas has <b>13 lunar months</b>; festivals tied to that month name get postponed to the Nija month.</li>
+      </ul>
+      <p><b>Worked example — 2026 has Adhik Jyeshtha:</b></p>
+      <pre style="background:var(--bg-2);padding:10px 12px;border-radius:8px;font-size:12px;line-height:1.5;color:var(--text-2);overflow-x:auto;">Amavasya 17 May 2026 ────────► Amavasya 15 Jun 2026
+   │                                       │
+   ├─── Mithuna Sankranti? 14 Jun 2026 ────┤   YES — would normally be inside
+   │                                       │
+   └─── But it falls AFTER this Amavasya ─┘   no sankranti in 17May–15Jun lunar month
+                                                  → that month is ADHIK JYESHTHA
+
+Amavasya 15 Jun 2026 ────────► Amavasya 14 Jul 2026
+   └─── Karka Sankranti 16 Jul ─────────── ───────┘  inside (just barely)
+                                                  → that month is NIJA JYESHTHA</pre>
+      <p class="small" style="color:var(--text-3);">Real-world note: 2026 is therefore a 13-month Vikram Samvat year. Jyeshtha-related festivals (Ganga Dussehra, Nirjala Ekadashi, Vat Savitri) follow Nija Jyeshtha in mid-June, not Adhik Jyeshtha in mid-May.</p>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">M6 · Kshaya Maas — the rare "lost" month</span></summary>
+      <p>The opposite of Adhik: a lunar month so long-bracketed that it contains <b>two</b> sankrantis. This is only possible when the Sun is moving fastest — near perihelion in early January — so the solar month is shorter than the lunar one. That month gets two month-names; one is effectively skipped from the calendar. It's called a <b>Kshaya Maas</b> ("decayed / lost month").</p>
+      <ul class="learn-list">
+        <li><b>Detection.</b> Two sankrantis between consecutive Amavasyas → Kshaya Maas.</li>
+        <li><b>Where.</b> Only possible around <b>Kartika–Magha</b> (Oct–Feb), because the Sun's apparent speed is highest then.</li>
+        <li><b>Frequency.</b> Roughly once every 19–141 years — very rare.</li>
+        <li><b>Coupled with Adhik.</b> A year containing a Kshaya Maas also contains <b>two</b> Adhik Maas to balance the count.</li>
+        <li><b>Historical examples.</b> Vikram Samvat 2039 (1982–83 CE) had Kshaya Pausha/Magha plus Adhik Ashwina and Adhik Phalguna.</li>
+      </ul>
+      <pre style="background:var(--bg-2);padding:10px 12px;border-radius:8px;font-size:12px;line-height:1.5;color:var(--text-2);overflow-x:auto;">Normal year:  ●─●─●─●─●─●─●─●─●─●─●─●            12 months
+Adhik year:   ●─●─●─●─●─●─●─●─●─●─●─●─●          13 months (one repeated)
+Kshaya year:  ●─●─●─●─●─●─●─●─●─●─●─●─●─●        13 months (2 adhik + 1 kshaya merged)</pre>
+    </details>
+
+    <details class="card learn-section">
+      <summary><span class="section-h" style="display:inline;padding:0;">M7 · End-to-end: how the Panchang tab arrives at the name</span></summary>
+      <p>The procedure our app runs each time you open the Panchang day view:</p>
+      <ol class="learn-list">
+        <li><b>Convert the civil date</b> (Y, M, D, tz, lat, lon) into a Julian Day at local noon.</li>
+        <li><b>Find the bounding Amavasyas</b> (Amanta) or Purnimas (Purnimanta) by root-finding on the synodic-phase function φ = (Moon−Sun) mod 360 — looking for φ = 0 (Amavasya) or φ = 180 (Purnima). We use Newton steps with the mean synodic rate (12.19°/day) as the derivative.</li>
+        <li><b>At the Amavasya that begins (or sits inside) the month</b>, compute the Sun's <i>sidereal</i> longitude using the active ayanamsha (Lahiri by default).</li>
+        <li><b>Read the lunar-month name</b> off the table in M3 — the index is <code>(sun_sign_at_amavasya + 1) mod 12</code>.</li>
+        <li><b>Read the Ritu</b> off the table in M4 — index is <code>floor(month_index / 2)</code>.</li>
+        <li><b>Format the start / end</b> Gregorian dates from the bounding-amavasya / bounding-purnima JDs.</li>
+      </ol>
+      <p>This is exactly the rule used by classical Drik Panchang almanacs. Results can differ ±1 day from your regional panchang depending on which ayanamsha you select (Settings → Ayanamsa) and your sunrise reference location.</p>
+      <p class="small" style="color:var(--text-3);">Results can differ ±1 day from regional panchangs depending on which ayanamsha you select (Settings → Ayanamsa) and your sunrise reference location.</p>
     </details>
 
     <details class="card learn-section">
