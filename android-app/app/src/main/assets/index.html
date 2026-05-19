@@ -551,7 +551,7 @@
 
     <!-- RESULTS -->
     <div id="results" style="display:none;">
-      <div id="personSwitcher" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--panel);border:1px solid var(--border);border-radius:var(--card-radius);margin-bottom:14px;"></div>
+      <div id="personSwitcher" style="display:none;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--panel);border:1px solid var(--border);border-radius:var(--card-radius);margin-bottom:14px;"></div>
 
       <!-- Sub-tab content panes — one per top-level nav destination -->
       <section id="pane-panchang" class="nav-pane active"></section>
@@ -654,6 +654,105 @@ const ENEMIES = {
 };
 
 // City database (sample of major cities + coords + tz)
+// ============================================================
+// PANCHANG LOCATION — sunrise/sunset/choghadia/muhurat all depend on lat/lon/tz.
+// By default we use Self's birth location (so behaviour is unchanged on first
+// launch). User can override via the picker at the top of Panchang or Muhurat.
+// Choice persists in localStorage.kundliPanchangLocation.
+// ============================================================
+// Panchang location is INDEPENDENT of the loaded Kundli/Milan charts. It only
+// reads from its own localStorage entry (or falls back to a hardcoded default).
+// No reference to SELF_DATA / PARTNER_DATA.
+function getPanchangLocation() {
+  const saved = (function(){ try { return JSON.parse(localStorage.getItem("kundliPanchangLocation") || "null"); } catch(e){ return null; } })();
+  if (saved && typeof saved.lat === "number" && typeof saved.lon === "number") return saved;
+  return { lat: 28.6139, lon: 77.2090, tz: 5.5, name: "New Delhi, India", source: "default" };
+}
+function setPanchangLocation(loc) {
+  localStorage.setItem("kundliPanchangLocation", JSON.stringify(loc));
+  renderPanchangPane();
+  renderMuhuratPane();
+}
+// HTML for the inline "Panchang location" picker shown at the top of Panchang/Muhurat.
+// Pure city-based — no Self/Partner-birthplace concept. Pick from CITIES dropdown,
+// or open the Custom panel for manual lat/lon/tz, or hit Device to use GPS.
+function renderPanchangLocationCard() {
+  const cur = getPanchangLocation();
+  // Find current city index if the saved lat/lon matches a known city
+  let citySelectedIdx = -1;
+  for (let i = 0; i < CITIES.length; i++) {
+    if (Math.abs(CITIES[i][1] - cur.lat) < 0.02 && Math.abs(CITIES[i][2] - cur.lon) < 0.02) {
+      citySelectedIdx = i; break;
+    }
+  }
+  const cityOptions = CITIES.map((c, i) =>
+    `<option value="${i}" ${i === citySelectedIdx ? 'selected' : ''}>${c[0]}</option>`
+  ).join("");
+  return `<div class="card">
+    <div class="eyebrow">Panchang location</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;">
+      <select onchange="onPanchangCityChange(this.value)" style="width:auto;flex:1;min-width:200px;font-weight:600;">
+        ${citySelectedIdx === -1 ? `<option value="-1" selected>${escapeHtml(cur.name)}</option>` : ''}
+        ${cityOptions}
+        <option value="device">📍 Use device location</option>
+        <option value="custom">⚙ Custom lat / lon / tz…</option>
+      </select>
+    </div>
+    <div class="small mono" style="color:var(--text-3);margin-top:6px;">${cur.lat.toFixed(4)}°, ${cur.lon.toFixed(4)}° · TZ ${cur.tz >= 0 ? '+' : ''}${cur.tz}</div>
+    <div id="panchangCustomFields" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
+        <div><label class="small" style="color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;">Latitude</label>
+          <input id="plLat" type="number" step="0.0001" value="${cur.lat}"/></div>
+        <div><label class="small" style="color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;">Longitude</label>
+          <input id="plLon" type="number" step="0.0001" value="${cur.lon}"/></div>
+        <div><label class="small" style="color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;">TZ (hrs, +E)</label>
+          <input id="plTz" type="number" step="0.25" value="${cur.tz}"/></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+        <button onclick="saveCustomPanchangLocation()" style="padding:6px 14px;">Save</button>
+      </div>
+    </div>
+  </div>`;
+}
+function onPanchangCityChange(v) {
+  if (v === "-1") return;
+  if (v === "device") { useDeviceLocation(); return; }
+  if (v === "custom") {
+    const el = document.getElementById("panchangCustomFields");
+    if (el) el.style.display = "block";
+    return;
+  }
+  const idx = parseInt(v);
+  if (idx >= 0 && idx < CITIES.length) {
+    const c = CITIES[idx];
+    setPanchangLocation({ lat: c[1], lon: c[2], tz: c[3], name: c[0], source: "city" });
+  }
+}
+// Use the device's reported GPS location (requires user permission).
+// Timezone offset comes from the browser's clock — assumed same as where the
+// panchang is being viewed. No reverse-geocoding (offline-friendly).
+function useDeviceLocation() {
+  if (!navigator.geolocation) { alert("Geolocation is not available on this device / browser."); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = +pos.coords.latitude.toFixed(4);
+      const lon = +pos.coords.longitude.toFixed(4);
+      const tz = -new Date().getTimezoneOffset() / 60;
+      setPanchangLocation({ lat, lon, tz, name: "My current location", source: "device" });
+    },
+    err => alert("Could not get location: " + err.message),
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 60 * 60 * 1000 }
+  );
+}
+
+function saveCustomPanchangLocation() {
+  const lat = parseFloat(document.getElementById("plLat").value);
+  const lon = parseFloat(document.getElementById("plLon").value);
+  const tz = parseFloat(document.getElementById("plTz").value);
+  if (isNaN(lat) || isNaN(lon) || isNaN(tz)) { alert("Please enter valid latitude, longitude, and timezone."); return; }
+  setPanchangLocation({ lat, lon, tz, name: `Custom (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`, source: "custom" });
+}
+
 const CITIES = [
   ["New Delhi, India", 28.6139, 77.2090, 5.5],
   ["Mumbai, India", 19.0760, 72.8777, 5.5],
@@ -788,11 +887,36 @@ function AE_sunLongitude(jd) {
   const v = Astronomy.GeoVector(Astronomy.Body.Sun, aeTime(jd), true);
   return mod360(Astronomy.Ecliptic(v).elon);
 }
-// Tropical ecliptic longitude of Moon via AE.
+// Tropical ecliptic longitude of Moon via AE — geocentric (from Earth's centre).
 function AE_moonLongitude(jd) {
   if (!aeReady()) return null;
   return mod360(Astronomy.EclipticGeoMoon(aeTime(jd)).lon);
 }
+
+// Tropical ecliptic longitude of Moon via AE — TOPOCENTRIC, corrected for the
+// observer's position on Earth (parallax). Returns null if AE isn't loaded yet
+// or if the observer-vector API isn't available. Up to ~1° shift vs geocentric
+// depending on Moon's altitude. Used when Moon mode = "topo".
+function AE_moonTopocentric(jd, lat, lon) {
+  if (!aeReady() || typeof Astronomy.ObserverVector !== "function") return null;
+  try {
+    const time = aeTime(jd);
+    const obs = new Astronomy.Observer(lat, lon, 0);
+    const moonGeo = Astronomy.GeoVector(Astronomy.Body.Moon, time, true);
+    const obsVec  = Astronomy.ObserverVector(time, obs, false);
+    const VecCtor = (typeof Astronomy.Vector === "function") ? Astronomy.Vector : null;
+    const topo = VecCtor
+      ? new VecCtor(moonGeo.x - obsVec.x, moonGeo.y - obsVec.y, moonGeo.z - obsVec.z, time)
+      : { x: moonGeo.x - obsVec.x, y: moonGeo.y - obsVec.y, z: moonGeo.z - obsVec.z, t: time };
+    return mod360(Astronomy.Ecliptic(topo).elon);
+  } catch (e) { return null; }
+}
+
+// Module-level observer used by moonLongitude() when topo mode is on.
+// Set transiently by computePositions / computePanchang / other top-level callers.
+let _moonObserver = null;
+function setMoonObserver(lat, lon) { _moonObserver = (typeof lat === "number") ? { lat, lon } : null; }
+function currentMoonMode() { return localStorage.getItem("kundliMoonMode") || "geo"; }
 // Tropical ecliptic longitude of a planet ("mercury"/"venus"/"mars"/"jupiter"/"saturn") via AE.
 function AE_planetLongitude(planet, jd) {
   if (!aeReady()) return null;
@@ -842,6 +966,14 @@ function sunLongitude(jd) {
 
 // ---------- MOON ----------
 function moonLongitude(jd) {
+  // Topocentric dispatch: when the user has selected "topo" mode AND we have
+  // an observer context set by the current top-level calc, prefer the
+  // parallax-corrected Moon. Falls through to geocentric on any failure so
+  // calculations never break.
+  if (currentMoonMode() === "topo" && _moonObserver) {
+    const t = AE_moonTopocentric(jd, _moonObserver.lat, _moonObserver.lon);
+    if (t !== null) return t;
+  }
   const ae = AE_moonLongitude(jd); if (ae !== null) return ae;
   const T = (jd - 2451545.0) / 36525.0;
   // Mean longitude
@@ -1084,24 +1216,33 @@ function ascendantTropical(jd, lat, lon) {
 
 // ---------- COMPUTE ALL POSITIONS ----------
 function computePositions(jd, lat, lon) {
-  const ay = ayanamsa(jd);
-  const positions = {};
-  const sunTrop = sunLongitude(jd);
-  positions.Su = { tropical: sunTrop, sidereal: mod360(sunTrop - ay), retro: false };
-  const moonTrop = moonLongitude(jd);
-  positions.Mo = { tropical: moonTrop, sidereal: mod360(moonTrop - ay), retro: false };
-  const pmap = {Ma:'mars', Me:'mercury', Ju:'jupiter', Ve:'venus', Sa:'saturn'};
-  for (const k of Object.keys(pmap)) {
-    const t = planetGeoLongitude(pmap[k], jd);
-    positions[k] = { tropical: t, sidereal: mod360(t - ay), retro: isRetrograde(pmap[k], jd) };
+  // Set observer context so moonLongitude() can dispatch to topocentric
+  // Moon when the user has that mode on. We restore the previous observer
+  // afterwards so nested calls (transit etc.) don't leak state.
+  const prevObs = _moonObserver;
+  setMoonObserver(lat, lon);
+  try {
+    const ay = ayanamsa(jd);
+    const positions = {};
+    const sunTrop = sunLongitude(jd);
+    positions.Su = { tropical: sunTrop, sidereal: mod360(sunTrop - ay), retro: false };
+    const moonTrop = moonLongitude(jd);
+    positions.Mo = { tropical: moonTrop, sidereal: mod360(moonTrop - ay), retro: false };
+    const pmap = {Ma:'mars', Me:'mercury', Ju:'jupiter', Ve:'venus', Sa:'saturn'};
+    for (const k of Object.keys(pmap)) {
+      const t = planetGeoLongitude(pmap[k], jd);
+      positions[k] = { tropical: t, sidereal: mod360(t - ay), retro: isRetrograde(pmap[k], jd) };
+    }
+    const ra = rahuLongitude(jd);
+    positions.Ra = { tropical: ra, sidereal: mod360(ra - ay), retro: true };
+    positions.Ke = { tropical: mod360(ra+180), sidereal: mod360(ra+180 - ay), retro: true };
+    // Ascendant
+    const ascT = ascendantTropical(jd, lat, lon);
+    positions.As = { tropical: ascT, sidereal: mod360(ascT - ay), retro: false };
+    return { positions, ayanamsa: ay };
+  } finally {
+    _moonObserver = prevObs;
   }
-  const ra = rahuLongitude(jd);
-  positions.Ra = { tropical: ra, sidereal: mod360(ra - ay), retro: true };
-  positions.Ke = { tropical: mod360(ra+180), sidereal: mod360(ra+180 - ay), retro: true };
-  // Ascendant
-  const ascT = ascendantTropical(jd, lat, lon);
-  positions.As = { tropical: ascT, sidereal: mod360(ascT - ay), retro: false };
-  return { positions, ayanamsa: ay };
 }
 
 // ---------- DIVISIONAL CHARTS ----------
@@ -1867,6 +2008,11 @@ function navTo(dest) {
   // Birth Details form only relevant on Kundli + Milan tabs
   const bc = document.getElementById("birthCard");
   if (bc) bc.style.display = (dest === "kundli" || dest === "match") ? "" : "none";
+  // Person switcher (Self / Partner) only relevant on Kundli tab — it controls
+  // which person's charts the Kundli sub-tabs (Overview, Rashi, Navamsa, …) show.
+  // Panchang / Muhurat / Reminders / Settings / Prashna / Learn don't care.
+  const ps = document.getElementById("personSwitcher");
+  if (ps) ps.style.display = (dest === "kundli") ? "flex" : "none";
   // Lazy render the destination (so we always pick up latest data)
   // Hindu Clock ticks only while Muhurat is visible
   if (typeof stopHinduClock === "function") stopHinduClock();
@@ -2134,8 +2280,18 @@ function renderOverview() {
       else if (OWN_SIGNS[p] && OWN_SIGNS[p].includes(s)) status = '<span class="badge good">Own Sign</span>';
     }
     if (pos.retro && p !== "As") status += ' <span class="badge warn">Retro</span>';
+    // Surface which Moon mode produced this longitude. Tiny chip with title
+    // for hover detail — keeps the table tidy but discoverable.
+    let moonChip = "";
+    if (p === "Mo") {
+      const mode = currentMoonMode();
+      const isTopo = mode === "topo";
+      moonChip = isTopo
+        ? ' <span class="badge" title="Topocentric (Sphuta) — parallax-corrected for the observer\'s location.">topo</span>'
+        : ' <span class="badge" title="Geocentric (Madhya) — Moon as seen from Earth\'s centre. Classical Vedic default.">geo</span>';
+    }
     html += `<tr>
-      <td><b>${PLANET_FULL[p] || p}</b></td>
+      <td><b>${PLANET_FULL[p] || p}</b>${moonChip}</td>
       <td>${SIGNS[s]}</td>
       <td>${degToDMS(pos.sidereal)}</td>
       <td>${p === "As" ? "1" : h}</td>
@@ -3184,6 +3340,62 @@ function fmtJDLocal(jd, tz, viewY, viewM, viewD) {
   return t + ' <span class="small" style="color:var(--text-3)">(' + ld.day + ' ' + monthName(ld.month) + ')</span>';
 }
 
+// Moon's sidereal speed (deg/day) at JD, via 1-day finite difference.
+function moonDailySpeed(jd) {
+  let dM = moonLongitude(jd + 0.5) - moonLongitude(jd - 0.5);
+  while (dM < -180) dM += 360;
+  while (dM >  180) dM -= 360;
+  const dAy = ayanamsa(jd + 0.5) - ayanamsa(jd - 0.5); // negligible (~0.0001°/day)
+  return dM - dAy;
+}
+
+// All nakshatras active during a local civil day (00:00 to 24:00), with their
+// pada subdivisions. Each pada = 3°20' of sidereal Moon longitude. Times are
+// computed by extrapolating from Moon's position+speed (accurate to a minute or two).
+function nakshatraDayTimes(year, month, day, tz) {
+  const startJDut = julianDay(year, month, day, -tz);  // 00:00 local in UT
+  const endJDut   = startJDut + 1.0;                   // next-day 00:00 in UT
+  const NAK_W = 360 / 27;                              // 13.333°
+  const PADA_W = NAK_W / 4;                            // 3.333°
+  const out = [];
+  let cursorJD = startJDut;
+  let iter = 0;
+  while (cursorJD < endJDut && iter < 6) {
+    const moonSid = mod360(moonLongitude(cursorJD) - ayanamsa(cursorJD));
+    const nakIdx = Math.floor(moonSid / NAK_W);
+    const nakStartLon = nakIdx * NAK_W;
+    const nakEndLon   = (nakIdx + 1) * NAK_W;
+    const speed = moonDailySpeed(cursorJD);
+    if (speed <= 0) break;  // safety — Moon shouldn't go backward
+    // Boundary JDs by linear extrapolation from cursor
+    const nakEntryJD = cursorJD - (moonSid - nakStartLon) / speed;
+    const nakExitJD  = cursorJD + (nakEndLon - moonSid) / speed;
+    // Day-visible window for this nakshatra
+    const visStartJD = Math.max(nakEntryJD, startJDut);
+    const visEndJD   = Math.min(nakExitJD,   endJDut);
+    // 4 padas — boundaries via the same extrapolation; clip to nakshatra and day
+    const padas = [];
+    for (let p = 0; p < 4; p++) {
+      const lonA = nakStartLon + p * PADA_W;
+      const lonB = lonA + PADA_W;
+      const padaA = cursorJD - (moonSid - lonA) / speed;
+      const padaB = cursorJD - (moonSid - lonB) / speed;
+      const visA = Math.max(padaA, visStartJD, nakEntryJD);
+      const visB = Math.min(padaB, visEndJD,   nakExitJD);
+      if (visB > visA) padas.push({ padaIdx: p + 1, startJD: visA, endJD: visB });
+    }
+    out.push({
+      nakIdx, name: NAKSHATRAS[nakIdx][0], lord: NAKSHATRAS[nakIdx][1],
+      visStartJD, visEndJD,
+      fullStartJD: nakEntryJD, fullEndJD: nakExitJD,
+      padas
+    });
+    cursorJD = nakExitJD + 0.001;   // step past the boundary
+    iter++;
+  }
+  return out;
+}
+
 // Active time-window of a *special* yoga (Guru Pushya / Ravi Pushya / Sarvartha Siddhi /
 // Amrita Siddhi). These are nakshatra-on-weekday yogas — active only while the Moon
 // is in that nakshatra AND it is the matching weekday. The weekday spans sunrise→next-sunrise.
@@ -3225,6 +3437,11 @@ function specialYogas(weekday, nakIdx, yogaName) {
 
 // Compute full panchang for a given local date
 function computePanchang(year, month, day, lat, lon, tz) {
+  // Honour the active Moon mode for this location too — panchang's Moon-derived
+  // figures (tithi, nakshatra, yoga, karana) will then be from a topocentric
+  // Moon when the user has that on.
+  const prevObs = _moonObserver;
+  setMoonObserver(lat, lon);
   const jdNoonUT = julianDay(year, month, day, 12 - tz);
   // Sun & Moon at noon
   const sunTrop = sunLongitude(jdNoonUT);
@@ -3277,6 +3494,9 @@ function computePanchang(year, month, day, lat, lon, tz) {
 
   // Special yogas
   const yogas = specialYogas(weekday, nak.idx, yogaName);
+
+  // Restore previous observer so transit / kundli flows aren't affected.
+  _moonObserver = prevObs;
 
   return {
     weekday,
@@ -3358,6 +3578,7 @@ function renderCalendar() {
   const today = new Date();
   CAL_DATE = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const html = `
+    ${renderPanchangLocationCard()}
     <div class="cal-toolbar">
       <button class="nav-btn" onclick="calNav(-1)">◀</button>
       <input id="calDate" type="date" value="${ymd(CAL_DATE)}" onchange="calJump(this.value)"/>
@@ -3416,7 +3637,7 @@ function calMode(m) {
 function drawCalBody() {
   const body = document.getElementById("calBody");
   if (!body) return;
-  const tz = CURRENT ? CURRENT.input.tz : 5.5;
+  const tz = getPanchangLocation().tz;
   if (CAL_MODE === "day") body.innerHTML = renderCalDay(CAL_DATE, tz);
   else if (CAL_MODE === "week") body.innerHTML = renderCalWeek(CAL_DATE, tz);
   else if (CAL_MODE === "month") body.innerHTML = renderCalMonth(CAL_DATE, tz);
@@ -3426,8 +3647,8 @@ function drawCalBody() {
 function renderCalDay(date, tz) {
   const Y = date.getFullYear(), M = date.getMonth()+1, D = date.getDate();
   const info = travelDirectionsFor(Y, M, D, tz);
-  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
-  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const _ploc = getPanchangLocation();
+  const lat = _ploc.lat, lon = _ploc.lon;
   const pan = computePanchang(Y, M, D, lat, lon, tz);
   const headline = `${t(WEEKDAY_NAMES[info.weekday])}, ${D} ${monthName(M)} ${Y}`;
   const fests = festivalsForPanchang(pan);
@@ -3586,8 +3807,8 @@ function renderCalWeek(date, tz) {
   let html = '<div class="week-grid">';
   const today = new Date();
   const todayStr = ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
-  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
-  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const _ploc = getPanchangLocation();
+  const lat = _ploc.lat, lon = _ploc.lon;
   for (let i = 0; i < 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     const info = travelDirectionsFor(d.getFullYear(), d.getMonth()+1, d.getDate(), tz);
@@ -3626,8 +3847,8 @@ function renderCalMonth(date, tz) {
   html += '<div class="month-grid">';
   for (const wd of ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]) html += `<div class="mh">${wd}</div>`;
   for (let i = 0; i < startDow; i++) html += '<div class="month-cell empty"></div>';
-  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
-  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const _ploc = getPanchangLocation();
+  const lat = _ploc.lat, lon = _ploc.lon;
   for (let d = 1; d <= lastDay; d++) {
     const info = travelDirectionsFor(y, m+1, d, tz);
     const pan = computePanchang(y, m+1, d, lat, lon, tz);
@@ -3675,8 +3896,8 @@ function renderCalYear(date, tz) {
     html += `<div class="year-month"><h4>${monthName(m+1)}</h4><div class="yg">`;
     for (const wd of ["S","M","T","W","T","F","S"]) html += `<div class="yh">${wd}</div>`;
     for (let i = 0; i < startDow; i++) html += '<div class="yc empty"></div>';
-    const lat = CURRENT ? CURRENT.input.lat : 28.6139;
-    const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+    const _ploc = getPanchangLocation();
+    const lat = _ploc.lat, lon = _ploc.lon;
     for (let d = 1; d <= lastDay; d++) {
       const info = travelDirectionsFor(y, m+1, d, tz);
       const pan = computePanchang(y, m+1, d, lat, lon, tz);
@@ -4024,7 +4245,7 @@ function renderMuhuratPane() {
   else if (MUHURAT_MODE === "week")  body = renderMuhuratWeek(date);
   else if (MUHURAT_MODE === "month") body = renderMuhuratMonth(date);
   else if (MUHURAT_MODE === "year")  body = renderMuhuratYear(date);
-  document.getElementById("pane-muhurat").innerHTML = toolbarHtml + body;
+  document.getElementById("pane-muhurat").innerHTML = renderPanchangLocationCard() + toolbarHtml + body;
   // Ensure the live Hindu Clock ticker is running iff the clock card is on-screen
   if (document.getElementById("hinduClockCard")) startHinduClock();
   else stopHinduClock();
@@ -4045,9 +4266,9 @@ function muhuratToday() { const t = new Date(); CAL_DATE = new Date(t.getFullYea
 function muhuratJumpAndDay(s) { muhuratJump(s); muhuratMode('day'); }
 
 function renderMuhuratDay(date) {
-  const tz = CURRENT ? CURRENT.input.tz : 5.5;
-  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
-  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const tz = getPanchangLocation().tz;
+  const _ploc = getPanchangLocation();
+  const lat = _ploc.lat, lon = _ploc.lon;
   const pan = computePanchang(date.getFullYear(), date.getMonth()+1, date.getDate(), lat, lon, tz);
   const dateStr = `${date.getDate()} ${monthName(date.getMonth()+1)} ${date.getFullYear()}`;
   const wdName = t(WEEKDAY_NAMES[pan.weekday]);
@@ -4134,6 +4355,7 @@ function renderMuhuratDay(date) {
       </div>
     </div>`;
   }
+  html += renderNakshatraPadaCard(date, tz);
   html += renderMuhuratTaraSection();
   return html;
 }
@@ -4165,6 +4387,43 @@ function renderMuhuratTaraSection() {
     </div>`;
 }
 
+// Nakshatra + Pada accordion for the Muhurat day view.
+// Shows each nakshatra active during the local civil day with its time window;
+// click a row to expand the 4 padas with their individual time slots.
+function renderNakshatraPadaCard(date, tz) {
+  const Y = date.getFullYear(), M = date.getMonth()+1, D = date.getDate();
+  const naks = nakshatraDayTimes(Y, M, D, tz);
+  if (naks.length === 0) return "";
+  const rows = naks.map((nk, i) => `
+    <details ${i === 0 ? 'open' : ''} style="border-bottom:1px solid var(--border);padding:8px 4px;">
+      <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;list-style:none;">
+        <span style="font-weight:600;color:var(--text);">${nk.name}</span>
+        <span class="chip">Lord: ${PLANET_FULL[nk.lord]}</span>
+        <span class="mono" style="margin-left:auto;color:var(--accent);font-size:13px;">
+          ${fmtJDLocal(nk.visStartJD, tz, Y, M, D)} → ${fmtJDLocal(nk.visEndJD, tz, Y, M, D)}
+        </span>
+      </summary>
+      <div style="padding:10px 0 4px 0;">
+        ${nk.padas.length === 0
+          ? `<p class="small" style="color:var(--text-3);font-style:italic;">No pada boundaries fall within today's window for this nakshatra.</p>`
+          : nk.padas.map(p => `
+            <div class="card-row" style="padding:6px 0;${p === nk.padas[0] ? '' : 'border-top:1px solid var(--border);'}">
+              <div class="ic" style="font-size:13px;font-weight:700;">${p.padaIdx}</div>
+              <div class="info"><div class="lbl">Pada ${p.padaIdx}</div></div>
+              <div class="right mono">${fmtJDLocal(p.startJD, tz, Y, M, D)} → ${fmtJDLocal(p.endJD, tz, Y, M, D)}</div>
+            </div>
+          `).join("")}
+        ${nk.padas.length > 0 ? `<p class="small" style="color:var(--text-3);margin-top:6px;font-style:italic;">Pada times are clipped to today's civil window (00:00 → 24:00) and to this nakshatra's actual entry/exit (full: ${fmtJDLocal(nk.fullStartJD, tz, Y, M, D)} → ${fmtJDLocal(nk.fullEndJD, tz, Y, M, D)}).</p>` : ''}
+      </div>
+    </details>
+  `).join("");
+  return `<div class="card">
+    <h3 style="color:var(--accent);margin-bottom:4px;">Nakshatra &amp; Padas</h3>
+    <p class="small" style="color:var(--text-2);margin-bottom:10px;">Nakshatras active during the day with pada-level breakdown. Each pada is 3°20′ of Moon's motion (~6 hours). Click any nakshatra to expand its padas.</p>
+    ${rows}
+  </div>`;
+}
+
 function muhuratTaraStart(idx) {
   const wrap = document.getElementById("muhuratTaraWrap");
   if (wrap) wrap.innerHTML = renderLearnTaraTable(idx);
@@ -4173,9 +4432,9 @@ function muhuratTaraStart(idx) {
 // ---- Muhurat WEEK view ----
 function renderMuhuratWeek(date) {
   const start = new Date(date); start.setDate(start.getDate() - start.getDay());
-  const tz = CURRENT ? CURRENT.input.tz : 5.5;
-  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
-  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const tz = getPanchangLocation().tz;
+  const _ploc = getPanchangLocation();
+  const lat = _ploc.lat, lon = _ploc.lon;
   const today = new Date();
   const todayStr = ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
   let html = '<div class="week-grid">';
@@ -4204,9 +4463,9 @@ function renderMuhuratMonth(date) {
   const first = new Date(y, m, 1);
   const lastDay = new Date(y, m+1, 0).getDate();
   const startDow = first.getDay();
-  const tz = CURRENT ? CURRENT.input.tz : 5.5;
-  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
-  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const tz = getPanchangLocation().tz;
+  const _ploc = getPanchangLocation();
+  const lat = _ploc.lat, lon = _ploc.lon;
   const today = new Date();
   const todayStr = ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
   let html = `<h3 style="color:var(--accent);text-align:center;margin-bottom:10px;">${monthName(m+1)} ${y}</h3>`;
@@ -4243,9 +4502,9 @@ function renderMuhuratMonth(date) {
 // ---- Muhurat YEAR view ----
 function renderMuhuratYear(date) {
   const y = date.getFullYear();
-  const tz = CURRENT ? CURRENT.input.tz : 5.5;
-  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
-  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const tz = getPanchangLocation().tz;
+  const _ploc = getPanchangLocation();
+  const lat = _ploc.lat, lon = _ploc.lon;
   const today = new Date();
   const todayStr = ymd(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
   let html = `<h3 style="color:var(--accent);text-align:center;margin-bottom:10px;">${y}</h3>`;
@@ -4316,6 +4575,13 @@ function renderSettings() {
           </div>
           <div class="sub">Rahu / Ketu computation method.</div>
         </div>
+        <div class="tile"><div class="lbl">Moon Position</div>
+          <div class="val" style="margin-top:6px;">
+            <button class="${currentMoonMode()==='geo'?'':'secondary'}" style="padding:6px 12px;" onclick="setMoonMode('geo')" title="Geocentric (Madhya Chandra) — Moon as seen from Earth's centre. This is the classical Siddhantic and Drik default used in every Panchang almanac and Vedic chart. Choose this for matches with traditional outputs.">Geocentric (Madhya)</button>
+            <button class="${currentMoonMode()==='topo'?'':'secondary'}" style="padding:6px 12px;margin-left:4px;" onclick="setMoonMode('topo')" title="Topocentric (Sphuta Chandra) — Moon corrected for parallax from the observer's exact location. Shifts Moon's longitude by up to ~1° vs geocentric (largest near horizon). Astronomically the truer position; useful for sub-degree work like exact Nakshatra-pada boundaries, but departs from the classical almanac convention.">Topocentric (Sphuta)</button>
+          </div>
+          <div class="sub">Geocentric matches classical almanacs. Topocentric is parallax-corrected for the observer (up to ~1° shift).</div>
+        </div>
         <div class="tile" style="grid-column: span 2;"><div class="lbl">House System</div>
           <div class="val" style="margin-top:6px;">
             <button class="${currentHouseSystem()==='whole'?'':'secondary'}"  style="padding:6px 12px;"             onclick="setHouseSystem('whole')">Whole Sign</button>
@@ -4372,6 +4638,7 @@ function recomputeAll() {
 function setAyanamsa(id)    { localStorage.setItem("kundliAyanamsa", id);     recomputeAll(); }
 function setNodeMode(m)     { localStorage.setItem("kundliNodeMode", m);      recomputeAll(); }
 function setHouseSystem(s)  { localStorage.setItem("kundliHouseSystem", s);   recomputeAll(); }
+function setMoonMode(m)     { localStorage.setItem("kundliMoonMode", m);      recomputeAll(); }
 
 // ============================================================
 // SAVED KUNDLIS — localStorage persistence
@@ -4745,8 +5012,8 @@ function computePahar(now, lat, lon, tz) {
 
 function renderHinduClock() {
   const now = new Date();
-  const lat = CURRENT ? CURRENT.input.lat : 28.6139;
-  const lon = CURRENT ? CURRENT.input.lon : 77.2090;
+  const _ploc = getPanchangLocation();
+  const lat = _ploc.lat, lon = _ploc.lon;
   const tz  = CURRENT ? CURRENT.input.tz  : 5.5;
   const sun = sunRiseSet(now.getFullYear(), now.getMonth()+1, now.getDate(), lat, lon, tz);
   const nowH = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
